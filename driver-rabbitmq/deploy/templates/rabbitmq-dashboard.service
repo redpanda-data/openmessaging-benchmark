@@ -1,0 +1,16 @@
+[Unit]
+Description=RabbitMQ Dashboard
+After=docker.service
+Requires=docker.service
+After=prometheus.service
+Requires=prometheus.service
+ 
+[Service]
+ExecStartPre=/usr/bin/docker pull aloknnikhil/omb-kafka-dashboard:latest
+ExecStart=/usr/bin/docker run --restart=always --name=systemd_rabbitmq_dashboard -p3000:3000 -e PROMETHEUS_URL=http://{{ hostvars[groups['prometheus'][0]].private_ip }}:9090/ aloknnikhil/omb-kafka-dashboard:latest
+ExecStop=/usr/bin/docker stop systemd_rabbitmq_dashboard
+ExecStopPost=/usr/bin/docker rm -f systemd_rabbitmq_dashboard
+ExecReload=/usr/bin/docker restart systemd_rabbitmq_dashboard
+ 
+[Install]
+WantedBy=multi-user.target

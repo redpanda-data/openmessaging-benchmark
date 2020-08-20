@@ -36,11 +36,13 @@ import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
 import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.slf4j.LoggerFactory;
-
 
 public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
     private final String defaultClusterId = "test-cluster";
@@ -49,7 +51,9 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
     private StreamingConnection natsStreamingPublisher;
     private SubscriptionOptions.Builder subBuilder = new SubscriptionOptions.Builder();
     private Options.Builder optsBuilder = new Options.Builder();
-    @Override public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
+
+    @Override
+    public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
         config = mapper.readValue(configurationFile, NatsStreamingClientConfig.class);
         log.info("read config file," + config.toString());
         if (config.clusterId != null) {
@@ -66,11 +70,13 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
         subBuilder.maxInFlight(config.maxInFlight);
     }
 
-    @Override public String getTopicNamePrefix() {
+    @Override
+    public String getTopicNamePrefix() {
         return "Nats-streaming-benchmark";
     }
 
-    @Override public CompletableFuture<Void> createTopic(String topic, int partitions) {
+    @Override
+    public CompletableFuture<Void> createTopic(String topic, int partitions) {
         log.info("nats streaming create a topic" + topic);
         log.info("ignore partitions");
         CompletableFuture<Void> future = new CompletableFuture<>();
@@ -78,7 +84,14 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
         return future;
     }
 
-    @Override public CompletableFuture<BenchmarkProducer> createProducer(String topic) {
+    @Override
+    public CompletableFuture<Void> notifyTopicCreation(String topic, int partitions) {
+        // No-op
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<BenchmarkProducer> createProducer(String topic) {
         if (natsStreamingPublisher == null) {
             String clientId = "ProducerInstance" + getRandomString();
             try {
@@ -92,16 +105,19 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
         return CompletableFuture.completedFuture(new NatsStreamingBenchmarkProducer(natsStreamingPublisher, topic));
     }
 
-    @Override public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
-        ConsumerCallback consumerCallback) {
+    @Override
+    public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
+            Optional<Integer> partition, ConsumerCallback consumerCallback) {
         Subscription sub;
         StreamingConnection streamingConnection;
         String clientId = "ConsumerInstance" + getRandomString();
         try {
             streamingConnection = NatsStreaming.connect(clusterId, clientId, optsBuilder.build());
             sub = streamingConnection.subscribe(topic, subscriptionName, new MessageHandler() {
-                @Override public void onMessage(Message message) {
-                    consumerCallback.messageReceived(message.getData(), message.getTimestamp());
+                @Override
+                public void onMessage(Message message) {
+                    consumerCallback.messageReceived(message.getData(),
+                            TimeUnit.MILLISECONDS.toNanos(message.getTimestamp()));
                 }
             }, subBuilder.build());
         } catch (Exception e) {
@@ -111,7 +127,8 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
         return CompletableFuture.completedFuture(new NatsStreamingBenchmarkConsumer(streamingConnection, sub, topic));
     }
 
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
         if (natsStreamingPublisher != null) {
             natsStreamingPublisher.close();
             natsStreamingPublisher = null;
@@ -119,7 +136,7 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
     }
 
     private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(NatsStreamingBenchmarkDriver.class);
 
@@ -137,7 +154,8 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
             SubscriptionOptions.Builder builder = new SubscriptionOptions.Builder();
             StreamingConnection streamingConnection = NatsStreaming.connect("mycluster", "benchmark-sub", opts);
             Subscription sub = streamingConnection.subscribe("topicTest", "subscription", new MessageHandler() {
-                @Override public void onMessage(Message message) {
+                @Override
+                public void onMessage(Message message) {
                     System.out.println(message.toString());
                 }
             }, builder.build());
@@ -145,7 +163,8 @@ public class NatsStreamingBenchmarkDriver implements BenchmarkDriver {
 
             final String[] guid = new String[1];
             AckHandler acb = new AckHandler() {
-                @Override public void onAck(String s, Exception e) {
+                @Override
+                public void onAck(String s, Exception e) {
                     if ((e != null) || !guid[0].equals(s)) {
                         System.out.println("pub error");
                     } else {

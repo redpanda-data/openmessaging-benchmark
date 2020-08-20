@@ -32,25 +32,29 @@ import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
 import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.nats.client.Connection;
 
-
 public class NatsBenchmarkDriver implements BenchmarkDriver {
     private NatsConfig config;
-    @Override public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
+
+    @Override
+    public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
         config = mapper.readValue(configurationFile, NatsConfig.class);
         log.info("read config file," + config.toString());
     }
 
-    @Override public String getTopicNamePrefix() {
+    @Override
+    public String getTopicNamePrefix() {
         return "Nats-benchmark";
     }
 
-    @Override public CompletableFuture<Void> createTopic(String topic, int partitions) {
+    @Override
+    public CompletableFuture<Void> createTopic(String topic, int partitions) {
         log.info("nats create a topic" + topic);
         log.info("ignore partitions");
         CompletableFuture<Void> future = new CompletableFuture<>();
@@ -58,7 +62,14 @@ public class NatsBenchmarkDriver implements BenchmarkDriver {
         return future;
     }
 
-    @Override public CompletableFuture<BenchmarkProducer> createProducer(String topic) {
+    @Override
+    public CompletableFuture<Void> notifyTopicCreation(String topic, int partitions) {
+        // No-op
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<BenchmarkProducer> createProducer(String topic) {
         Connection natsProducer;
         try {
             Options options = new Options.Builder().server(config.natsHostUrl).maxReconnects(5).build();
@@ -70,8 +81,9 @@ public class NatsBenchmarkDriver implements BenchmarkDriver {
         return CompletableFuture.completedFuture(new NatsBenchmarkProducer(natsProducer, topic));
     }
 
-    @Override public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
-        ConsumerCallback consumerCallback) {
+    @Override
+    public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
+                                                               Optional<Integer> partition, ConsumerCallback consumerCallback) {
         Dispatcher natsConsumer;
         Connection cn;
         log.info("createConsumer");
@@ -91,12 +103,13 @@ public class NatsBenchmarkDriver implements BenchmarkDriver {
         return CompletableFuture.completedFuture(new NatsBenchmarkConsumer(cn));
     }
 
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
 
     }
 
     private static final Logger log = LoggerFactory.getLogger(NatsBenchmarkDriver.class);
     private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
 }

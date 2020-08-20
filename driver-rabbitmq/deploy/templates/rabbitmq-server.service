@@ -1,14 +1,42 @@
 [Unit]
 Description=RabbitMQ broker
-After=network.target
+After=syslog.target network.target
 
 [Service]
-ExecStart=/usr/lib/rabbitmq/bin/rabbitmq-server
-WorkingDirectory=/var/lib/rabbitmq
-RestartSec=1s
+Type=notify
+User=rabbitmq
+Group=rabbitmq
+UMask=0027
+NotifyAccess=all
+TimeoutStartSec=600
+
+# To override LimitNOFILE, create the following file:
+#
+# /etc/systemd/system/rabbitmq-server.service.d/limits.conf
+#
+# with the following content:
+#
+# [Service]
+# LimitNOFILE=65536
+
+LimitNOFILE=65536
+
+# Note: systemd on CentOS 7 complains about in-line comments,
+# so only append them here
+#
+# Restart:
+# The following setting will automatically restart RabbitMQ
+# in the event of a failure. systemd service restarts are not a
+# replacement for service monitoring. Please see
+# https://www.rabbitmq.com/monitoring.html
+Environment="RABBITMQ_MNESIA_BASE=/mnt/data-1"
 Restart=on-failure
-Type=simple
-LimitNOFILE=300000
+RestartSec=10
+WorkingDirectory=/var/lib/rabbitmq
+ExecStart=/usr/sbin/rabbitmq-server
+ExecStop=/usr/sbin/rabbitmqctl shutdown
+# See rabbitmq/rabbitmq-server-release#51
+SuccessExitStatus=69
 
 [Install]
 WantedBy=multi-user.target

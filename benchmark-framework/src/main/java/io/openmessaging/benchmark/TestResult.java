@@ -52,7 +52,7 @@ public class TestResult {
     public Map<Double, Double> aggregatedPublishLatencyQuantiles = new TreeMap<>();
 
     // End to end latencies (from producer to consumer)
-    // Latencies are expressed in milliseconds (without decimals)
+    // Latencies are expressed in milliseconds
 
     public List<Double> endToEndLatencyAvg = new ArrayList<>();
     public List<Double> endToEndLatency50pct = new ArrayList<>();

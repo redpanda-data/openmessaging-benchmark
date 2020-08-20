@@ -17,24 +17,37 @@
 # under the License.
 #
 
+rabbitmq_erlang_cookie: EVLTHXJHWKZWBPPFHVPI
+rabbitmq_use_longname: "true"
 
-name: Kafka
-driverClass: io.openmessaging.benchmark.driver.kafka.KafkaBenchmarkDriver
+rabbitmq_amqp_port: 5672
+rabbitmq_epmd_port: 4369
+rabbitmq_node_port: 15672
+rabbitmq_ulimit_open_files: 4096
 
-# Kafka client-specific configuration
-replicationFactor: 3
+rabbitmq_plugins:
+  - rabbitmq_management
+  - rabbitmq_management_agent
+  - rabbitmq_shovel
+  - rabbitmq_shovel_management
+  - rabbitmq_prometheus
 
-topicConfig: |
-  min.insync.replicas=2
+# TLS/SSL support
+enable_tls: false
+# if true, only tls is supported which means amqp default port 5672 is not open anymore
+tls_only: false
 
-commonConfig: |
-  bootstrap.servers=localhost:9092
+tls_verify: "verify_none"
+tls_fail_if_no_peer_cert: false
 
-producerConfig: |
-  acks=all
-  linger.ms=1
-  batch.size=131072
+cacertfile: ""
+cacertfile_dest: "/etc/rabbitmq/cacert.pem"
 
-consumerConfig: |
-  auto.offset.reset=earliest
-  enable.auto.commit=false
+certfile: ""
+certfile_dest: "/etc/rabbitmq/cert.pem"
+
+keyfile: ""
+keyfile_dest: "/etc/rabbitmq/key.pem"
+
+# Cluster configuration
+rabbitmq_cluster_master: "{{ groups['rabbitmq'][0] }}"

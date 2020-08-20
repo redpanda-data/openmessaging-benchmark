@@ -1,10 +1,11 @@
 provider "aws" {
   region  = "${var.region}"
-  version = "1.8"
+  version = "~> 2.7"
+  profile = "default"
 }
 
 provider "random" {
-  version = "1.1"
+  version = "2.1"
 }
 
 variable "public_key_path" {
@@ -42,7 +43,7 @@ variable "num_instances" {
 resource "aws_vpc" "benchmark_vpc" {
   cidr_block = "10.0.0.0/16"
 
-  tags {
+  tags = {
     Name = "Pulsar-Benchmark-VPC-${random_id.hash.hex}"
   }
 }
@@ -64,6 +65,7 @@ resource "aws_subnet" "benchmark_subnet" {
   vpc_id                  = "${aws_vpc.benchmark_vpc.id}"
   cidr_block              = "10.0.0.0/24"
   map_public_ip_on_launch = true
+  availability_zone       = "us-west-2a"
 }
 
 resource "aws_security_group" "benchmark_security_group" {
@@ -108,7 +110,7 @@ resource "aws_security_group" "benchmark_security_group" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags {
+  tags = {
     Name = "Benchmark-Security-Group-${random_id.hash.hex}"
   }
 }
@@ -126,7 +128,7 @@ resource "aws_instance" "zookeeper" {
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["zookeeper"]}"
 
-  tags {
+  tags = {
     Name = "zk-${count.index}"
   }
 }
@@ -139,7 +141,7 @@ resource "aws_instance" "pulsar" {
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["pulsar"]}"
 
-  tags {
+  tags = {
     Name = "pulsar-${count.index}"
   }
 }
@@ -152,7 +154,7 @@ resource "aws_instance" "client" {
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["client"]}"
 
-  tags {
+  tags = {
     Name = "pulsar-client-${count.index}"
   }
 }
@@ -165,7 +167,7 @@ resource "aws_instance" "prometheus" {
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["prometheus"]}"
 
-  tags {
+  tags = {
     Name = "prometheus-${count.index}"
   }
 }
@@ -174,6 +176,44 @@ output "client_ssh_host" {
   value = "${aws_instance.client.0.public_ip}"
 }
 
+output "client1" {
+  value = "${aws_instance.client.1.public_ip}"
+}
+
+output "client2" {
+  value = "${aws_instance.client.2.public_ip}"
+}
+
+output "client3" {
+  value = "${aws_instance.client.3.public_ip}"
+}
+
 output "prometheus_host" {
   value = "${aws_instance.prometheus.0.public_ip}"
 }
+
+output "server0" {
+  value = "${aws_instance.pulsar.0.public_ip}"
+}
+
+output "server1" {
+  value = "${aws_instance.pulsar.1.public_ip}"
+}
+
+output "server2" {
+  value = "${aws_instance.pulsar.2.public_ip}"
+}
+
+output "zk0" {
+  value = "${aws_instance.zookeeper.0.public_ip}"
+}
+
+output "zk1" {
+  value = "${aws_instance.zookeeper.1.public_ip}"
+}
+
+output "zk2" {
+  value = "${aws_instance.zookeeper.2.public_ip}"
+}
+
+

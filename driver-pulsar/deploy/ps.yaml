@@ -17,11 +17,15 @@
 # under the License.
 #
 
+---
+- name: Check the running java processes
+  hosts: all
+  tasks:
+    - name: Check running processes
+      shell: ps -ef | grep -i java
+      register: ps_cmd
 
-name: RabbitMQ
-driverClass: io.openmessaging.benchmark.driver.rabbitmq.RabbitMqBenchmarkDriver
+    - name: Show captured processes
+      debug:
+        var: ps_cmd.stdout
 
-# RabbitMq client specific configurations
-
-brokerAddress: localhost
-messagePersistence: false

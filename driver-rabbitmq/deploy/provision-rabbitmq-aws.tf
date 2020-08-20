@@ -32,7 +32,7 @@ provider "aws" {
 resource "aws_vpc" "benchmark_vpc" {
   cidr_block = "10.0.0.0/16"
 
-  tags {
+  tags = {
     Name = "Benchmark-VPC"
   }
 }
@@ -54,6 +54,7 @@ resource "aws_subnet" "benchmark_subnet" {
   vpc_id                  = "${aws_vpc.benchmark_vpc.id}"
   cidr_block              = "10.0.0.0/24"
   map_public_ip_on_launch = true
+  availability_zone       = "us-west-2b"
 }
 
 resource "aws_security_group" "benchmark_security_group" {
@@ -76,6 +77,20 @@ resource "aws_security_group" "benchmark_security_group" {
     cidr_blocks = ["10.0.0.0/16"]
   }
 
+  # Prometheus/Dashboard access
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # outbound internet access
   egress {
     from_port   = 0
@@ -84,7 +99,15 @@ resource "aws_security_group" "benchmark_security_group" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags {
+  # RabbitMQ dashboard
+  ingress {
+    from_port   = 15672
+    to_port     = 15672
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
     Name = "Benchmark-Security-Group-RabbitMQ"
   }
 }
@@ -102,7 +125,7 @@ resource "aws_instance" "rabbitmq" {
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["rabbitmq"]}"
 
-  tags {
+  tags = {
     Name = "rabbitmq-${count.index}"
   }
 }
@@ -115,11 +138,38 @@ resource "aws_instance" "client" {
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["client"]}"
 
-  tags {
+  tags = {
     Name = "rabbitmq-client-${count.index}"
   }
 }
 
-output "client_ssh_host" {
-  value = "${aws_instance.client.0.public_ip}"
+resource "aws_instance" "prometheus" {
+  ami                    = "${var.ami}"
+  instance_type          = "${var.instance_types["prometheus"]}"
+  key_name               = "${aws_key_pair.auth.id}"
+  subnet_id              = "${aws_subnet.benchmark_subnet.id}"
+  vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
+  count                  = "${var.num_instances["prometheus"]}"
+
+  tags = {
+    Name = "prometheus-${count.index}"
+  }
+}
+
+output "brokers" {
+  value = {
+    for instance in aws_instance.rabbitmq :
+    instance.public_ip => instance.private_ip
+  }
+}
+
+output "clients" {
+  value = {
+    for instance in aws_instance.client :
+    instance.public_ip => instance.private_ip
+  }
+}
+
+output "prometheus_host" {
+  value = "${aws_instance.prometheus.0.public_ip}"
 }

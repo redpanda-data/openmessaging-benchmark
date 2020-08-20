@@ -17,152 +17,228 @@
 # under the License.
 #
 
-- name: Add entries to /etc/hosts
-  hosts: all
+---
+# Mount SSDs
+- name: Format and mount disks for Brokers
+  hosts: rabbitmq
   connection: ssh
+  become: true
   tasks:
-    - lineinfile:
-        dest: /etc/hosts
-        line: "{{ item.line }}"
-        state: present
+    - name: Format disks
+      filesystem:
+        fstype: xfs
+        dev: "{{ item }}"
       with_items:
-        - { line: "{{ hostvars[groups['rabbitmq'][0]].private_ip }} rabbitmaster" }
-        - { line: "{{ hostvars[groups['rabbitmq'][1]].private_ip }} rabbitslave1" }
-        - { line: "{{ hostvars[groups['rabbitmq'][2]].private_ip }} rabbitslave2" }
+        - "/dev/nvme1n1"
+        - "/dev/nvme2n1"
+    - name: Mount disks
+      mount:
+        path: "{{ item.path }}"
+        src: "{{ item.src }}"
+        fstype: xfs
+        opts: defaults,noatime,nodiscard
+        state: mounted
+      with_items:
+        - { path: "/mnt/data-1", src: "/dev/nvme1n1" }
+        - { path: "/mnt/data-2", src: "/dev/nvme2n1" }
+    - name: Fix permissions
+      file:
+        path: "/mnt/data-1"
+        state: touch
+        mode: "0777"
 
+- name: Chrony setup
+  hosts: client
+  connection: ssh
+  become: true
+  tasks:
+    - name: Set up chronyd
+      template:
+        src: "templates/chrony.conf"
+        dest: "/etc/chrony.conf"
+    - systemd:
+        state: restarted
+        daemon_reload: yes
+        name: "chronyd"
 
+# Install RabbitMQ Server
 - name: Install RabbitMQ Cluster
   hosts: rabbitmq
   connection: ssh
+  handlers:
+    - name: restart rabbitmq-server
+      service: name=rabbitmq-server state=restarted
+
+    - name: start rabbitmq-server
+      service: name=rabbitmq-server state=started
+
+    - name: stop rabbitmq-server
+      service: name=rabbitmq-server state=stopped
   tasks:
-  - set_fact:
-      erlangVersion: 19.3.6.5
-      rabbitMqVersion: 3.7.2
-  - name: Install RPM packages
-    yum: pkg={{ item }} state=latest
-    with_items:
-      - wget
-      - java
-      - sysstat
-      - vim
-      - socat
-  - name: Install Erlang
-    yum:
-      name: https://github.com/rabbitmq/erlang-rpm/releases/download/v{{ erlangVersion }}/erlang-{{ erlangVersion }}-1.el7.centos.x86_64.rpm
-      state: present
-  - name: Install Rabbitmq Server
-    yum:
-      name: https://dl.bintray.com/rabbitmq/all/rabbitmq-server/{{ rabbitMqVersion }}/rabbitmq-server-{{ rabbitMqVersion }}-1.el7.noarch.rpm
-      state: present
+    - set_fact:
+        erlangVersion: 23.0.2
+        rabbitMqVersion: 3.8.5
+    - name: Install RPM packages
+      yum: pkg={{ item }} state=latest
+      with_items:
+        - wget
+        - java-11
+        - sysstat
+        - vim
+        - socat
+    - name: Install Erlang
+      yum:
+        name: https://github.com/rabbitmq/erlang-rpm/releases/download/v{{ erlangVersion }}/erlang-{{ erlangVersion }}-1.el7.x86_64.rpm
+        state: present
+    - name: Install Rabbitmq Server
+      yum:
+        name: https://dl.bintray.com/rabbitmq/all/rabbitmq-server/{{ rabbitMqVersion }}/rabbitmq-server-{{ rabbitMqVersion }}-1.el7.noarch.rpm
+        state: present
+    - name: Install RabbitMQ service
+      template:
+        src: "templates/rabbitmq-server.service"
+        dest: "/etc/systemd/system/rabbitmq-server.service"
+    - systemd:
+        state: started
+        daemon_reload: yes
+        name: "rabbitmq-server"
+    - systemd:
+        state: restarted
+        daemon_reload: yes
+        name: "rabbitmq-server"
 
-  - name: Change master hostname to rabbitmaster
-    hostname:
-      name: "rabbitmaster"
-    when: rabbitmq_master is defined
+    - name: backup old erlang cookie
+      shell: cp -a /var/lib/rabbitmq/.erlang.cookie /var/lib/rabbitmq/.erlang.cookie.old
+      changed_when: false
+    - name: updating rabbitmq erlang cookie
+      template:
+        src: etc/erlang.cookie.j2
+        dest: /var/lib/rabbitmq/.erlang.cookie
+        owner: rabbitmq
+        group: rabbitmq
+        mode: 0400
+      notify: stop rabbitmq-server
+    - name: remove old erlang cookie
+      file:
+        path: /var/lib/rabbitmq/.erlang.cookie.old
+        state: absent
+      changed_when: false
+    - name: rabbitmq default file
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: 0644
+      with_items:
+        - {
+            src: etc/default/rabbitmq-server.j2,
+            dest: /etc/default/rabbitmq-server,
+          }
+        - {
+            src: etc/rabbitmq/rabbitmq.config.j2,
+            dest: /etc/rabbitmq/rabbitmq.config,
+          }
+        - {
+            src: etc/rabbitmq/rabbitmq-env.conf.j2,
+            dest: /etc/rabbitmq/rabbitmq-env.conf,
+          }
+      notify: restart rabbitmq-server
+    - systemd:
+        state: started
+        daemon_reload: yes
+        name: "rabbitmq-server"
 
-  - name: Change slave1 hostname to rabbitslave1
-    hostname:
-      name: "rabbitslave1"
-    when: rabbitslave1 is defined
+# Configure RabbitMQ for cluster
+- name: Configure RabbitMQ for cluster
+  hosts: rabbitmq
+  connection: ssh
+  handlers:
+    - name: restart rabbitmq-server
+      service: name=rabbitmq-server state=restarted
 
-  - name: Change slave2 hostname to rabbitslave2
-    hostname:
-      name: "rabbitslave2"
-    when: rabbitslave2 is defined
+    - name: start rabbitmq-server
+      service: name=rabbitmq-server state=started
 
-  # - name: stop rabbitmq
-  #   shell: rabbitmqctl stop_app
-  # - name: kill rabbitmq
-  #   shell: rabbitmqctl stop ; ps aux | grep rabbitmq | grep -v grep | awk '{print $2}'| xargs kill -9
-  # - name: reset rabbitmq
-  #   shell: rabbitmqctl reset
+    - name: stop rabbitmq-server
+      service: name=rabbitmq-server state=stopped
+  tasks:
+    - name: Enable the plugins installed
+      rabbitmq_plugin:
+        names: "{{ item }}"
+        prefix: /usr/lib/rabbitmq
+        state: enabled
+        new_only: yes
+      with_items: "{{ rabbitmq_plugins }}"
+      notify: start rabbitmq-server
 
-  - systemd:
-      state: started
-      daemon_reload: yes
-      name: "rabbitmq-server"
-  - name: Install web management
-    shell: rabbitmq-plugins enable rabbitmq_management
-  - systemd:
-      state: restarted
-      daemon_reload: yes
-      name: "rabbitmq-server"
-  - name: create admin/admin  profile
-    shell:  rabbitmqctl add_user admin  admin
-  - name: set admin tag
-    shell: rabbitmqctl set_user_tags admin administrator
-  - name: set admin permission
-    shell: rabbitmqctl set_permissions -p "/" admin ".*" ".*" ".*"
-  - name: Clear servers' Erlang cookie
-    file:
-      path: /var/lib/rabbitmq/.erlang.cookie
-      state: absent
-  - name: Copy Erlang cookie
-    copy: src=erlang.cookie  dest=/var/lib/rabbitmq/.erlang.cookie  owner=rabbitmq group=rabbitmq mode=0400
-  - systemd:
-      state: restarted
-      daemon_reload: yes
-      name: "rabbitmq-server"
-  - name: RabbitMQ status
-    shell: rabbitmqctl cluster_status
-    register: result
-  - debug:
-      msg: '{{ result.stdout }}'
-  - name: Rabbit cluster stop slaves
-    shell: rabbitmqctl stop_app
-    when: rabbitmq_slave is defined
-  - name: Rabbit cluster slaves join master
-    shell: rabbitmqctl join_cluster rabbit@rabbitmaster
-    when: rabbitmq_slave is defined
-  - name: Start RabbitMQ cluster slaves
-    shell: rabbitmqctl start_app
-    when: rabbitmq_slave is defined
-  - name: Show RabbitMQ cluster status
-    shell: rabbitmqctl cluster_status
-  - name: Create high availability pllicy
-    shell: rabbitmqctl set_policy ha-all "^" '{"ha-mode":"exactly","ha-params":2,"ha-sync-mode":"automatic"}'
-    when: rabbitmq_master is defined
-  # - name: add queue taxCodeInvoiceQueue
-  #   rabbitmq_queue: name=cmcc_zzs_taxCodeInvoiceQueue
-  #   when: rabbitmq_master is defined
-  # - name: add queue cmcc_zzs_generatorInvoiceQueue
-  #   rabbitmq_queue: name=cmcc_zzs_generatorInvoiceQueue
-  #   when: rabbitmq_master is defined
-  # - name: add queue cmcc_zzs_pushInvoiceQueue
-  #   rabbitmq_queue: name=cmcc_zzs_pushInvoiceQueue
-  #   when: rabbitmq_master is defined
-  # - name: add queue cmcc_zzs_sentToPlatformServerQueue
-  #   rabbitmq_queue: cmcc_zzs_sentToPlatformServerQueue
-  #   when: rabbitmq_master is defined
-  - name: Show queue list
-    shell: rabbitmqctl list_queues
-    register: result_queue
-  - debug: msg='{{result_queue.stdout}}'
-  
-  
+    - name: Restart RabbitMQ server
+      systemd:
+        state: started
+        name: "rabbitmq-server"
+
+    - name: make sure rabbitmq app is up
+      command: rabbitmqctl start_app
+
+    - name: Join first node's cluster
+      shell: rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@{{ hostvars[groups['rabbitmq'][0]].private_ip }} && rabbitmqctl start_app
+      when: inventory_hostname != hostvars[groups['rabbitmq'][0]].inventory_hostname
+
+    - name: create admin/admin  profile
+      shell: rabbitmqctl add_user admin  admin
+      when: inventory_hostname == hostvars[groups['rabbitmq'][0]].inventory_hostname
+    - name: set admin tag
+      shell: rabbitmqctl set_user_tags admin administrator
+      when: inventory_hostname == hostvars[groups['rabbitmq'][0]].inventory_hostname
+    - name: set admin permission
+      shell: rabbitmqctl set_permissions -p "/" admin ".*" ".*" ".*"
+      when: inventory_hostname == hostvars[groups['rabbitmq'][0]].inventory_hostname
+
+    - name: set ha-mode to exactly two nodes for all queues for backup
+      shell: rabbitmqctl set_policy ha-exactly-two ".*" '{"ha-mode":"exactly","ha-params":2,"ha-sync-mode":"automatic"}'
+      register: res
+      failed_when: res.rc != 0
+      when: inventory_hostname == hostvars[groups['rabbitmq'][0]].inventory_hostname
+
 - name: Rabbitmq benchmarking client setup
   hosts: client
   connection: ssh
   become: true
   tasks:
+    - name: Install RPM packages
+      yum: pkg={{ item }} state=latest
+      with_items:
+        - wget
+        - java-11
+        - sysstat
+        - vim
+        - socat
     - name: Copy benchmark code
       unarchive:
         src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
     - shell: >
-        tuned-adm profile latency-performance &&
+        tuned-adm profile latency-performance && rm -rf /opt/benchmark &&
         mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
-    - name: Configure service URL
-      lineinfile:
-        dest: /opt/benchmark/driver-rabbitmq/rabbitmq.yaml
-        regexp: '^brokerAddress\: '
-        line: 'brokerAddress: rabbitmaster'
     - name: Configure benchmark JVM settings
       lineinfile:
-         dest: /opt/benchmark/bin/benchmark
-         regexp: '^JVM_MEM='
-         line: 'JVM_MEM="-Xms24G -Xmx24G -XX:+UseG1GC -XX:MaxGCPauseMillis=10 -XX:+ParallelRefProcEnabled -XX:+UnlockExperimentalVMOptions -XX:+AggressiveOpts -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=32 -XX:ConcGCThreads=32 -XX:G1NewSizePercent=50 -XX:+DisableExplicitGC -XX:-ResizePLAB -XX:+PerfDisableSharedMem -XX:+AlwaysPreTouch -XX:-UseBiasedLocking"'
-
+        dest: /opt/benchmark/bin/benchmark
+        regexp: "^JVM_MEM="
+        line: 'JVM_MEM="-Xms24G -Xmx24G -XX:+UseG1GC -XX:MaxGCPauseMillis=10 -XX:+ParallelRefProcEnabled -XX:+UnlockExperimentalVMOptions -XX:+AggressiveOpts -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=32 -XX:ConcGCThreads=32 -XX:G1NewSizePercent=50 -XX:+DisableExplicitGC -XX:-ResizePLAB -XX:+PerfDisableSharedMem -XX:+AlwaysPreTouch -XX:-UseBiasedLocking"'
+    - template:
+        src: "templates/workers.yaml"
+        dest: "/opt/benchmark/workers.yaml"
+    - template:
+        src: "templates/rabbitmq.yaml"
+        dest: "/opt/benchmark/driver-rabbitmq/rabbitmq.yaml"
+    - name: Install benchmark systemd service
+      template:
+        src: "templates/benchmark-worker.service"
+        dest: "/etc/systemd/system/benchmark-worker.service"
+    - systemd:
+        state: restarted
+        daemon_reload: yes
+        name: "benchmark-worker"
 
 - name: List host addresses
   hosts: localhost
@@ -174,4 +250,111 @@
     - debug:
         msg: "Benchmark client {{ item }}"
       with_items: "{{ groups['client'] }}"
-  
+
+# Setup the Prometheus/Grafana monitoring stack
+- name: Prometheus installation
+  hosts: prometheus
+  connection: ssh
+  become: true
+  tasks:
+    - name: Add Extras Repo
+      shell: yum-config-manager --enable rhui-REGION-rhel-server-extras
+    - name: Install RPM packages
+      yum: pkg={{ item }} state=latest
+      with_items:
+        - docker
+    - set_fact:
+        prometheusVersion: "2.2.1"
+    - file: path=/opt/prometheus state=absent
+    - file: path=/opt/prometheus state=directory
+    - name: Download Prometheus Binary Package
+      unarchive:
+        src: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheusVersion }}/prometheus-{{ prometheusVersion }}.linux-amd64.tar.gz"
+        remote_src: yes
+        dest: /opt/prometheus
+        extra_opts: ["--strip-components=1"]
+    - set_fact:
+        private_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+
+- name: Prometheus setup
+  hosts: prometheus
+  connection: ssh
+  become: true
+  tasks:
+    - file:
+        path: "/opt/prometheus/{{ item }}"
+        state: directory
+      with_items:
+        - data
+    - template:
+        src: "templates/prometheus.service"
+        dest: "/etc/systemd/system/prometheus.service"
+    - template:
+        src: "templates/rabbitmq-dashboard.service"
+        dest: "/etc/systemd/system/rabbitmq-dashboard.service"
+    - template:
+        src: "templates/prometheus.yml"
+        dest: "/opt/prometheus/prometheus.yml"
+    - systemd:
+        state: restarted
+        daemon_reload: yes
+        name: "rabbitmq-dashboard"
+
+- name: Install Node exporter on Brokers to collect system metrics
+  hosts: rabbitmq
+  become: true
+  tasks:
+    - name: Add user node_exporter
+      user:
+        name: node_exporter
+        shell: /bin/false
+        system: true
+        create_home: no
+
+    - name: Download and extract
+      unarchive:
+        src: https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+        dest: /tmp
+        remote_src: yes
+
+    - name: Copy bin node_exporter to /usr/local/bin
+      copy:
+        src: /tmp/node_exporter-1.0.1.linux-amd64/node_exporter
+        remote_src: yes
+        dest: /usr/local/bin/
+        owner: node_exporter
+        group: node_exporter
+        mode: u+x,g+x,o+x
+
+    - name: Create service node_exporter.service
+      blockinfile:
+        path: /etc/systemd/system/node_exporter.service
+        block: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          Wants=network-online.target
+          After=network-online.target
+          [Service]
+          User=node_exporter
+          Group=node_exporter
+          Type=simple
+          ExecStart=/usr/local/bin/node_exporter
+          [Install]
+          WantedBy=multi-user.target
+        create: true
+
+    - name: systemctl daemon_reload
+      systemd:
+        daemon_reload: yes
+
+    - name: Start and Enable node_exporter
+      service:
+        name: node_exporter
+        state: started
+        enabled: yes
+
+    - name: Check whether port 9100 is available
+      wait_for:
+        port: 9100
+        state: started
+        timeout: 5

@@ -18,11 +18,13 @@
  */
 package io.openmessaging.benchmark.driver.kafka;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -52,20 +54,19 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
         this.consumerTask = this.executor.submit(() -> {
             while (!closing) {
                 try {
-                    ConsumerRecords<String, byte[]> records = consumer.poll(100);
-
+                    ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(100));
                     Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
                     for (ConsumerRecord<String, byte[]> record : records) {
-                        callback.messageReceived(record.value(), record.timestamp());
-
+                        callback.messageReceived(record.value(), TimeUnit.MILLISECONDS.toNanos(record.timestamp()));
                         offsetMap.put(new TopicPartition(record.topic(), record.partition()),
-                            new OffsetAndMetadata(record.offset()));
+                                new OffsetAndMetadata(record.offset()));
                     }
 
-                    if (!offsetMap.isEmpty()) {
-                        consumer.commitSync(offsetMap);
+                    if (!records.isEmpty()) {
+                        // Async commit all messages polled so far
+                        consumer.commitAsync(offsetMap, null);
                     }
-                }catch(Exception e){
+                } catch (Exception e) {
                     log.error("exception occur while consuming message", e);
                 }
             }

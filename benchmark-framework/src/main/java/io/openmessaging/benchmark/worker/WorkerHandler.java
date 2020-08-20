@@ -19,6 +19,7 @@
 package io.openmessaging.benchmark.worker;
 
 import java.io.File;
+import java.net.HttpURLConnection;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -26,6 +27,7 @@ import org.apache.bookkeeper.stats.StatsLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -49,11 +51,14 @@ public class WorkerHandler {
 
         app.post("/initialize-driver", this::handleInitializeDriver);
         app.post("/create-topics", this::handleCreateTopics);
+        app.post("/notify-topic-creation", this::handleNotifyTopicCreation);
         app.post("/create-producers", this::handleCreateProducers);
         app.post("/probe-producers", this::handleProbeProducers);
         app.post("/create-consumers", this::handleCreateConsumers);
         app.post("/pause-consumers", this::handlePauseConsumers);
         app.post("/resume-consumers", this::handleResumeConsumers);
+        app.post("/pause-producers", this::handlePauseProducers);
+        app.post("/resume-producers", this::handleResumeProducers);
         app.post("/start-load", this::handleStartLoad);
         app.post("/adjust-publish-rate", this::handleAdjustPublishRate);
         app.post("/stop-all", this::handleStopAll);
@@ -61,11 +66,16 @@ public class WorkerHandler {
         app.get("/cumulative-latencies", this::handleCumulativeLatencies);
         app.get("/counters-stats", this::handleCountersStats);
         app.post("/reset-stats", this::handleResetStats);
+
+        app.exception(RuntimeException.class, (e, ctx) -> {
+            log.error("Request handler: {} - Exception: {}", ctx.path(), e.getMessage());
+            ctx.status(HttpURLConnection.HTTP_INTERNAL_ERROR);
+        });
     }
 
     private void handleInitializeDriver(Context ctx) throws Exception {
         // Save config to temp file
-        File tempFile = File.createTempFile("driver-configuration", "conf");
+        File tempFile = File.createTempFile("driver-configuration" + System.currentTimeMillis(), "conf");
         Files.write(ctx.bodyAsBytes(), tempFile);
 
         localWorker.initializeDriver(tempFile);
@@ -75,8 +85,15 @@ public class WorkerHandler {
     private void handleCreateTopics(Context ctx) throws Exception {
         TopicsInfo topicsInfo = mapper.readValue(ctx.body(), TopicsInfo.class);
         log.info("Received create topics request for topics: {}", ctx.body());
-        List<String> topics = localWorker.createTopics(topicsInfo);
+        List<Topic> topics = localWorker.createTopics(topicsInfo);
         ctx.result(writer.writeValueAsString(topics));
+    }
+
+    private void handleNotifyTopicCreation(Context ctx) throws Exception {
+        List<Topic> topics = mapper.readValue(ctx.body(), new TypeReference<List<Topic>>() {
+        });
+        log.info("Received notify topic creation request for topics: {}", ctx.body());
+        localWorker.notifyTopicCreation(topics);
     }
 
     private void handleCreateProducers(Context ctx) throws Exception {
@@ -102,6 +119,14 @@ public class WorkerHandler {
 
     private void handleResumeConsumers(Context ctx) throws Exception {
         localWorker.resumeConsumers();
+    }
+
+    private void handlePauseProducers(Context ctx) throws Exception {
+        localWorker.pauseProducers();
+    }
+
+    private void handleResumeProducers(Context ctx) throws Exception {
+        localWorker.resumeProducers();
     }
 
     private void handleStartLoad(Context ctx) throws Exception {
