@@ -17,15 +17,14 @@
 # under the License.
 #
 
-name: Kafka
-driverClass: io.openmessaging.benchmark.driver.kafka.KafkaBenchmarkDriver
+name: Redpanda
+driverClass: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
 # Kafka client-specific configuration
 replicationFactor: 3
 reset: true
 
 # Configuration (flush.messages; flush.ms) enabled only for tests that fsync every message
 topicConfig: |
-  min.insync.replicas=2
   flush.messages=1
   flush.ms=0
 commonConfig: |
