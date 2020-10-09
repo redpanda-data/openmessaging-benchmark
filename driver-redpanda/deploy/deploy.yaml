@@ -73,22 +73,24 @@
   become: true
   tasks:
     - name: Remove sysstat
-      yum: pkg={{ item }} state=absent
-      with_items:
-        - sysstat
+      package:
+        name:
+          - sysstat
+        state: absent
     - name: Install RPM packages
-      yum: pkg={{ item }} state=latest
-      with_items:
-        - mdadm
-        - xfsprogs
-        - iotop
-        - wget
-        - java-11
-        - sysstat
-        - vim
-        - chrony
-        - git
-        - gcc
+      package:
+        name: 
+          - mdadm
+          - xfsprogs
+          - iotop
+          - wget
+          - java-11
+          - sysstat
+          - vim
+          - chrony
+          - git
+          - gcc
+        state: present
 
 - name: set facts about drives
   hosts: redpanda
@@ -96,7 +98,6 @@
   - set_fact: 
       device_info: "{{ hostvars[inventory_hostname].ansible_devices }}"
       nvme_device_ids: "{{ hostvars[inventory_hostname].ansible_devices.keys() | map('regex_search', 'nvme.*') | select('string') | list }}" 
-
   - set_fact: 
       nvme_devices_for_raid: '{{ (nvme_devices_for_raid | default([])) + ["/dev/" + item] }}'
     loop: '{{ nvme_device_ids }}'
@@ -185,9 +186,10 @@
 - name: Store server lists
   hosts: all
   connection: ssh
+  tags: client
   tasks:
     - set_fact:
-        boostrapServers: "{{ groups['redpanda'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
+        bootstrapServers: "{{ groups['redpanda'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
 
 - name: install redpanda
   hosts: redpanda
@@ -195,8 +197,8 @@
     - name: add the redpanda repo
       shell: |
         curl -s https://ceba06f0585fdd548c3106334751dcd75abf0d043320fab5:@packagecloud.io/install/repositories/vectorizedio/v/script.rpm.sh | sudo bash
-      
-  
+      args: 
+        warn: no 
     - name: install redpanda
       package: 
         name: 
@@ -334,6 +336,7 @@
   hosts: client
   connection: ssh
   become: true
+  tags: client
   tasks:
     - file: path=/opt/benchmark state=absent
     - name: Copy benchmark code
@@ -344,14 +347,14 @@
     #- shell: tuned-adm profile latency-performance
 
     - name: Get list of driver config files
-      raw: ls -1 /opt/benchmark/driver-kafka/*.yaml
+      raw: ls -1 /opt/benchmark/driver-redpanda/*.yaml
       register: drivers_list
 
     - name: Configure URL
       lineinfile:
         dest: "{{ item }}"
         regexp: "^  bootstrap.servers="
-        line: "  bootstrap.servers={{ boostrapServers }}"
+        line: "  bootstrap.servers={{ bootstrapServers }}"
       with_items: "{{ drivers_list.stdout_lines }}"
     - name: Configure memory
       lineinfile:
