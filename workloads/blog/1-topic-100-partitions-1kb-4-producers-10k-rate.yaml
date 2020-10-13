@@ -17,25 +17,15 @@
 # under the License.
 #
 
-name: Redpanda
-driverClass: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
-# Kafka client-specific configuration
-replicationFactor: 3
-reset: true
+name: 100-partitions-10K-rate-4-producer
 
-# Configuration (flush.messages; flush.ms) enabled only for tests that fsync every message
-topicConfig: |
-  flush.messages=1
-  flush.ms=0
-commonConfig: |
-  bootstrap.servers=localhost:9092
-  request.timeout.ms=120000
-producerConfig: |
-  acks=all
-  linger.ms=10
-  batch.size=1048576
-consumerConfig: |
-  group.id=benchGroup
-  auto.offset.reset=earliest
-  enable.auto.commit=false
-  max.partition.fetch.bytes=1048576
+topics: 1
+partitionsPerTopic: 100
+messageSize: 1024
+payloadFile: "payload/payload-1Kb.data"
+subscriptionsPerTopic: 1
+consumerPerSubscription: 4
+producersPerTopic: 4
+producerRate: 10000
+consumerBacklogSizeGB: 0
+testDurationMinutes: 10
