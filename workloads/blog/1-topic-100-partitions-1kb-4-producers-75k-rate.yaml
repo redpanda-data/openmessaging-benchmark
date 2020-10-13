@@ -17,24 +17,15 @@
 # under the License.
 #
 
-name: Redpanda
-driverClass: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
-# Kafka client-specific configuration
-replicationFactor: 3
-reset: true
+name: 100-partitions-75K-rate-4-producer
 
-topicConfig: |
-  flush.messages=1
-  flush.ms=0
-commonConfig: |
-  bootstrap.servers=localhost:9092
-  request.timeout.ms=120000
-producerConfig: |
-  acks=all
-  linger.ms=1
-  batch.size=131072
-consumerConfig: |
-  group.id=benchGroup
-  auto.offset.reset=earliest
-  enable.auto.commit=false
-  max.partition.fetch.bytes=131072
+topics: 1
+partitionsPerTopic: 100
+messageSize: 1024
+payloadFile: "payload/payload-1Kb.data"
+subscriptionsPerTopic: 1
+consumerPerSubscription: 4
+producersPerTopic: 4
+producerRate: 75000
+consumerBacklogSizeGB: 0
+testDurationMinutes: 10

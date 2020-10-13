@@ -17,27 +17,15 @@
 # under the License.
 #
 
-# Kafka driver profile that is configuring to sync all
-# published messages to disk to achieve durability
-name: Redpanda
-driverClass: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
+name: 100-partitions-100K-rate-4-producer
 
-# Kafka client-specific configuration
-replicationFactor: 3
-reset: true
-
-topicConfig: |
-  flush.messages=1
-  flush.ms=0
-
-commonConfig: |
-  bootstrap.servers=localhost:9092
-
-producerConfig: |
-  acks=all
-  linger.ms=1
-  batch.size=131072
-
-consumerConfig: |
-  auto.offset.reset=earliest
-  enable.auto.commit=false
+topics: 1
+partitionsPerTopic: 24
+messageSize: 1024
+payloadFile: "payload/payload-1Kb.data"
+subscriptionsPerTopic: 1
+consumerPerSubscription: 24
+producersPerTopic: 24
+producerRate: 100000
+consumerBacklogSizeGB: 0
+testDurationMinutes: 10
