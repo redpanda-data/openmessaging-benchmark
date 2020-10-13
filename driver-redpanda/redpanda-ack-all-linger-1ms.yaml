@@ -27,8 +27,6 @@ replicationFactor: 3
 reset: true
 
 topicConfig: |
-  flush.messages=1
-  flush.ms=0
 
 commonConfig: |
   bootstrap.servers=localhost:9092

@@ -144,9 +144,13 @@ public class Benchmark {
 
                     TestResult result = generator.run();
 
-                    String fileName = arguments.output.length() > 0 ? arguments.output
-                            : String.format("%s-%s-%s.json", workloadName, driverConfiguration.name,
-                                    dateFormat.format(new Date()));
+                    String fileName;
+                    if (arguments.output != null  && arguments.output.length() > 0) {
+                        fileName = arguments.output;
+                    } else {
+                        fileName = String.format("%s-%s-%s.json", workloadName, driverConfiguration.name,
+                                dateFormat.format(new Date()));
+                    }
 
                     log.info("Writing test result into {}", fileName);
                     writer.writeValue(new File(fileName), result);
