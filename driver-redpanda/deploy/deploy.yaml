@@ -332,8 +332,3 @@
       url: 'http://localhost:9090'
       basicAuth: false
     grafana_dashboards_dir: '{{ grafana_dir }}'
-
-output "client_ssh_host" {
-  value = "${aws_instance.client.0.public_ip}"
-}
-
