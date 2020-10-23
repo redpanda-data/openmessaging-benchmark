@@ -317,113 +317,169 @@
         msg: "Benchmark clients {{ item }}"
       with_items: "{{ groups['client'] }}"
 
-# Setup the Prometheus/Grafana monitoring stack
-- name: Prometheus installation
-  hosts: prometheus
-  connection: ssh
-  become: true
-  tasks:
-    - name: Add Extras Repo
-      shell: yum-config-manager --enable rhui-REGION-rhel-server-extras
-    - name: Install RPM packages
-      yum: pkg={{ item }} state=latest
-      with_items:
-        - docker
-    - set_fact:
-        prometheusVersion: "2.19.3"
-    - file: path=/opt/prometheus state=absent
-    - file: path=/opt/prometheus state=directory
-    - name: Download Prometheus Binary Package
-      unarchive:
-        src: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheusVersion }}/prometheus-{{ prometheusVersion }}.linux-amd64.tar.gz"
-        remote_src: yes
-        dest: /opt/prometheus
-        extra_opts: ["--strip-components=1"]
-    - set_fact:
-        private_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
-
-- name: Prometheus setup
-  hosts: prometheus
-  connection: ssh
-  become: true
-  tasks:
-    - file:
-        path: "/opt/prometheus/{{ item }}"
-        state: directory
-      with_items:
-        - data
-    - template:
-        src: "templates/prometheus.service"
-        dest: "/etc/systemd/system/prometheus.service"
-    - template:
-        src: "templates/kafka-dashboard.service"
-        dest: "/etc/systemd/system/kafka-dashboard.service"
-    - template:
-        src: "templates/prometheus.yml"
-        dest: "/opt/prometheus/prometheus.yml"
-    - systemd:
-        state: restarted
-        daemon_reload: yes
-        name: "kafka-dashboard"
-
-- name: Install Node exporter on Brokers to collect system metrics
+# Install the monitoring stack
+- name: Install Node Exporter
   hosts: kafka
-  become: true
-  tasks:
-    - name: Add user node_exporter
-      user:
-        name: node_exporter
-        shell: /bin/false
-        system: true
-        create_home: no
+  roles:
+  - cloudalchemy.node-exporter
 
-    - name: Download and extract
-      unarchive:
-        src: https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
-        dest: /tmp
-        remote_src: yes
+- hosts: prometheus
+  roles:
+  - cloudalchemy.prometheus
+  vars:
+    prometheus_scrape_configs:
+      - job_name: "broker"
+        static_configs:
+          - targets: "{{ groups['kafka'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:8080') | list  }}"
+      - job_name: "node"
+        static_configs:
+          - targets: "{{ groups['kafka'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
+      - job_name: "client - jmx"
+        static_configs:
+          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:9090') | list }}"
+      - job_name: "client"
+        static_configs:
+          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:8081') | list }}"
 
-    - name: Copy bin node_exporter to /usr/local/bin
-      copy:
-        src: /tmp/node_exporter-1.0.1.linux-amd64/node_exporter
-        remote_src: yes
-        dest: /usr/local/bin/
-        owner: node_exporter
-        group: node_exporter
-        mode: u+x,g+x,o+x
+#- name: jmx export setup
+#  hosts: prometheus
+#  connection: ssh
+#  become: true
+#  tasks:
+#    - template:
+#        src: "templates/kafka-dashboard.service"
+#        dest: "/etc/systemd/system/kafka-dashboard.service"
+#    - systemd:
+#        state: restarted
+#        daemon_reload: yes
+#        name: "kafka-dashboard"
 
-    - name: Create service node_exporter.service
-      blockinfile:
-        path: /etc/systemd/system/node_exporter.service
-        block: |
-          [Unit]
-          Description=Prometheus Node Exporter
-          Wants=network-online.target
-          After=network-online.target
-          [Service]
-          User=node_exporter
-          Group=node_exporter
-          Type=simple
-          ExecStart=/usr/local/bin/node_exporter
-          [Install]
-          WantedBy=multi-user.target
-        create: true
+- hosts: prometheus
+  roles: 
+  - cloudalchemy.grafana
+  vars:
+    grafana_version: 6.7.3
+    grafana_security:
+      admin_user: admin
+      admin_password: enter_your_secure_password
+    grafana_datasources:
+    - name: prometheus
+      type: prometheus
+      access: proxy
+      url: 'http://localhost:9090'
+      basicAuth: false
+    grafana_dashboards:
+    - dashboard_id: 1860
+      revision_id: 21
+      datasource: prometheus
 
-    - name: systemctl daemon_reload
-      systemd:
-        daemon_reload: yes
-
-    - name: Start and Enable node_exporter
-      service:
-        name: node_exporter
-        state: started
-        enabled: yes
-
-    - name: Check whether port 9100 is available
-      wait_for:
-        port: 9100
-        state: started
-        timeout: 5
+# Setup the Prometheus/Grafana monitoring stack
+#- name: Prometheus installation
+#  hosts: prometheus
+#  connection: ssh
+#  become: true
+#  tasks:
+#    - name: Add Extras Repo
+#      shell: yum-config-manager --enable rhui-REGION-rhel-server-extras
+#    - name: Install RPM packages
+#      yum: pkg={{ item }} state=latest
+#      with_items:
+#        - docker
+#    - set_fact:
+#        prometheusVersion: "2.19.3"
+#    - file: path=/opt/prometheus state=absent
+#    - file: path=/opt/prometheus state=directory
+#    - name: Download Prometheus Binary Package
+#      unarchive:
+#        src: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheusVersion }}/prometheus-{{ prometheusVersion }}.linux-amd64.tar.gz"
+#        remote_src: yes
+#        dest: /opt/prometheus
+#        extra_opts: ["--strip-components=1"]
+#    - set_fact:
+#        private_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+#
+#- name: Prometheus setup
+#  hosts: prometheus
+#  connection: ssh
+#  become: true
+#  tasks:
+#    - file:
+#        path: "/opt/prometheus/{{ item }}"
+#        state: directory
+#      with_items:
+#        - data
+#    - template:
+#        src: "templates/prometheus.service"
+#        dest: "/etc/systemd/system/prometheus.service"
+#    - template:
+#        src: "templates/kafka-dashboard.service"
+#        dest: "/etc/systemd/system/kafka-dashboard.service"
+#    - template:
+#        src: "templates/prometheus.yml"
+#        dest: "/opt/prometheus/prometheus.yml"
+#    - systemd:
+#        state: restarted
+#        daemon_reload: yes
+#        name: "kafka-dashboard"
+#
+#- name: Install Node exporter on Brokers to collect system metrics
+#  hosts: kafka
+#  become: true
+#  tasks:
+#    - name: Add user node_exporter
+#      user:
+#        name: node_exporter
+#        shell: /bin/false
+#        system: true
+#        create_home: no
+#
+#    - name: Download and extract
+#      unarchive:
+#        src: https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+#        dest: /tmp
+#        remote_src: yes
+#
+#    - name: Copy bin node_exporter to /usr/local/bin
+#      copy:
+#        src: /tmp/node_exporter-1.0.1.linux-amd64/node_exporter
+#        remote_src: yes
+#        dest: /usr/local/bin/
+#        owner: node_exporter
+#        group: node_exporter
+#        mode: u+x,g+x,o+x
+#
+#    - name: Create service node_exporter.service
+#      blockinfile:
+#        path: /etc/systemd/system/node_exporter.service
+#        block: |
+#          [Unit]
+#          Description=Prometheus Node Exporter
+#          Wants=network-online.target
+#          After=network-online.target
+#          [Service]
+#          User=node_exporter
+#          Group=node_exporter
+#          Type=simple
+#          ExecStart=/usr/local/bin/node_exporter
+#          [Install]
+#          WantedBy=multi-user.target
+#        create: true
+#
+#    - name: systemctl daemon_reload
+#      systemd:
+#        daemon_reload: yes
+#
+#    - name: Start and Enable node_exporter
+#      service:
+#        name: node_exporter
+#        state: started
+#        enabled: yes
+#
+#    - name: Check whether port 9100 is available
+#      wait_for:
+#        port: 9100
+#        state: started
+#        timeout: 5
 
 - name: Install jattach and async-profiler
   hosts: all
