@@ -1,6 +1,6 @@
 public_key_path = "~/.ssh/redpanda_aws.pub"
 region          = "us-west-2"
-ami             = "ami-020405ee5d5747724"
+ami             = "ami-02f147dfb8be58a10"
 profile         = "default"
 
 instance_types = {
@@ -10,7 +10,7 @@ instance_types = {
 }
 
 num_instances = {
-  "client"     = 2
+  "client"     = 1
   "redpanda"   = 3
   "prometheus" = 1
 }
