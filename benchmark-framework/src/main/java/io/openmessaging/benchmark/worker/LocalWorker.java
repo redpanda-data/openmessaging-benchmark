@@ -40,7 +40,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.RateLimiter;
+import io.openmessaging.benchmark.utils.RateLimiter;
 
 import org.HdrHistogram.Recorder;
 import org.apache.bookkeeper.stats.Counter;
