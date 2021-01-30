@@ -78,7 +78,7 @@ def create_quantile_chart(prefix, workload, title, y_label, time_series):
         values = sorted((float(x), y) for x, y in values.items())
         # do not restrict to any percentiles. show the max; the outliers
         # are where the goodies lie
-        xy_values = [(math.log10(100 / (100 - x)), y) for x, y in values]
+        xy_values = [(math.log10(100 / max((100 - x),1)), y) for x, y in values]
         chart.add(label, xy_values, stroke_style=opts)
 
     file_list[prefix].append(f'{workload}.svg')
