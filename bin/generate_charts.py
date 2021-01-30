@@ -21,6 +21,7 @@
 import json
 import sys
 import statistics
+import math
 import numpy as np
 import argparse
 import re
@@ -51,13 +52,29 @@ fill = False
 output = ''
 file_list = defaultdict(list)
 
+def _clean_xy_values(values):
+    values = sorted((float(x), y) for x, y in values.items())
+    # do not restrict to any percentiles. show the max; the outliers
+    # are where the goodies lie
+    def _x_axis(x):
+        if x < 100: 
+            return math.log10(100 / (100 - x))
+        return x
+    xy_values = [(_x_axis(x), y) for x, y in values]
+    found_normalized_max = False
+    def _max_index(clean_vals):
+        index = 0
+        for x, y in clean_vals:
+            if 100 == int(x): return index
+            index = index + 1
+    return xy_values[:_max_index(xy_values)]
+
 
 def create_quantile_chart(prefix, workload, title, y_label, time_series):
-    import math
     def _fmt_val(x):
         return '{:,.3f} %'.format(100.0 - (100.0 / (10**x)))
     chart = pygal.XY(style=theme,
-                     dots_size=0.5,
+                     dots_size=2,
                      legend_at_bottom=True,
                      truncate_legend=37,
                      x_value_formatter=_fmt_val,
@@ -65,20 +82,15 @@ def create_quantile_chart(prefix, workload, title, y_label, time_series):
                      fill=fill,
                      stroke_style={'width': 2},
                      show_y_guides=True,
-                     show_x_guides=False)
+                     show_x_guides=True)
+    # chart = pygal.XY()
     chart.title = title
-    # chart.stroke = False
-
     chart.human_readable = True
     chart.y_title = y_label
     chart.x_title = 'Percentile'
-    chart.x_labels = [0.30103, 1, 2, 3, 4, 5]
-
+    chart.x_labels = [1, 3, 5, 8]
     for label, values, opts in time_series:
-        values = sorted((float(x), y) for x, y in values.items())
-        # do not restrict to any percentiles. show the max; the outliers
-        # are where the goodies lie
-        xy_values = [(math.log10(100 / max((100 - x),1)), y) for x, y in values]
+        xy_values = _clean_xy_values(values)    
         chart.add(label, xy_values, stroke_style=opts)
 
     file_list[prefix].append(f'{workload}.svg')
@@ -155,8 +167,7 @@ def create_chart(prefix, workload, title, y_label, time_series):
     chart.human_readable = True
     chart.y_title = y_label
     chart.x_title = 'Time (seconds)'
-    # line_chart.x_labels = [str(10 * x) for x in range(len(time_series[0][1]))]
-
+    
     ys = []
     for label, values in time_series:
         ys.append(values)
@@ -386,7 +397,7 @@ if __name__ == "__main__":
     <div class='row'>
     <div class='well col-md-12'><h2>{{prefix}}<h2></div>
     {% for file in file_list[prefix] %}
-        <div class="embed-responsive embed-responsive-16by9 col-md-6">
+        <div class="embed-responsive-16by9">
             <embed class=embed-responsive-item" type="image/svg+xml" src="{{file}}"/>
         </div>
     {% endfor %}
