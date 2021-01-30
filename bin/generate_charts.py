@@ -54,13 +54,13 @@ file_list = defaultdict(list)
 
 def create_quantile_chart(prefix, workload, title, y_label, time_series):
     import math
+    def _fmt_val(x):
+        return '{:,.3f} %'.format(100.0 - (100.0 / (10**x)))
     chart = pygal.XY(style=theme,
                      dots_size=0.5,
                      legend_at_bottom=True,
                      truncate_legend=37,
-                     x_value_formatter=lambda x: '{:,.3f} %'.format(100.0 -
-                                                                    (100.0 /
-                                                                     (10**x))),
+                     x_value_formatter=_fmt_val,
                      show_dots=True,
                      fill=fill,
                      stroke_style={'width': 2},
