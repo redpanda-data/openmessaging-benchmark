@@ -33,7 +33,14 @@ from os import path
 from jinja2 import Template
 from collections import defaultdict
 
-graph_colors = ['#00ff00', '#ff0000', '#0000ff', '#ff00ff', '#ffff00', '#00ffff', '#ffd700']
+graph_colors = ['#202020', # dark gray 
+                '#0000ff', # blue 
+                '#ff0000', # red
+                '#00ff00', 
+                '#ff00ff', 
+                '#ffff00', 
+                '#00ffff', 
+                '#ffd700']
 chartStyle = Style(
     background='transparent',
     plot_background='transparent',
@@ -263,7 +270,7 @@ def generate_charts(files):
 
     # Generate publish rate bar-chart
     svg = prefix + '-publish-rate-bar'
-    create_bar_chart(prefix, svg, 'Throughput (MB/s)', 'MB/s: higher is better', drivers,
+    create_bar_chart(prefix, svg, 'Throughput (MB/s): higher is better', 'MB/s', drivers,
                      pub_rate_avg)
 
     # Generate latency quantiles
@@ -306,7 +313,7 @@ def generate_charts(files):
     time_series = zip(drivers, stats_pub_rate)
     create_chart(prefix,
                  svg,
-                 'Publish Rate',
+                 'Publish Rate: higher is better',
                  y_label='Message/s',
                  time_series=time_series)
 
@@ -375,7 +382,7 @@ if __name__ == "__main__":
 <html>
 <head>
 
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 </head>
 <body >
 <div class="container">
@@ -384,7 +391,7 @@ if __name__ == "__main__":
     <div class='row'>
     <div class='well col-md-12'><h2>{{prefix}}<h2></div>
     {% for file in file_list[prefix] %}
-        <div class="embed-responsive-16by9">
+        <div class="embed-responsive embed-responsive-4by3">
             <embed class=embed-responsive-item" type="image/svg+xml" src="{{file}}"/>
         </div>
     {% endfor %}
