@@ -77,7 +77,7 @@ def _clean_xy_values(values):
 
 def create_quantile_chart(prefix, workload, title, y_label, time_series):
     def _fmt_val(x):
-        return '{:,.3f} %'.format(100.0 - (100.0 / (10**x)))
+        return '{:,.3f}%'.format(100.0 - (100.0 / (10**x)))
     chart = pygal.XY(style=theme,
                      dots_size=2,
                      legend_at_bottom=True,
