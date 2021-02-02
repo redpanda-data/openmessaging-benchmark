@@ -21,6 +21,7 @@
 import json
 import sys
 import statistics
+import math
 import numpy as np
 import argparse
 import re
@@ -32,17 +33,22 @@ from os import path
 from jinja2 import Template
 from collections import defaultdict
 
+graph_colors = ['#202020', # dark gray 
+                '#0000ff', # blue 
+                '#ff0000', # red
+                '#00ff00', 
+                '#ff00ff', 
+                '#ffff00', 
+                '#00ffff', 
+                '#ffd700']
 chartStyle = Style(
     background='transparent',
     plot_background='transparent',
     font_family='googlefont:Montserrat',
-    # colors=('#D8365D', '#78365D')
-    #colors=('#66CC69', '#173361', '#D8365D'),
-    colors=('#800000', '#4363d8', '#f58231'),
+    colors=graph_colors,
     label_font_size=16,
     legend_font_size=16,
     major_label_font_size=16,
-    # colors=('#66CC69', '#667C69', '#173361', '#D8365D', '#78365D'),
 )
 
 #theme = pygal.style.CleanStyle
@@ -51,33 +57,45 @@ fill = False
 output = ''
 file_list = defaultdict(list)
 
+def _clean_xy_values(values):
+    values = sorted((float(x), y) for x, y in values.items())
+    # do not restrict to any percentiles. show the max; the outliers
+    # are where the goodies lie
+    def _x_axis(x):
+        if x < 100: 
+            return math.log10(100 / (100 - x))
+        return x
+    xy_values = [(_x_axis(x), y) for x, y in values]
+    found_normalized_max = False
+    def _max_index(clean_vals):
+        index = 0
+        for x, y in clean_vals:
+            if 100 == int(x): return index
+            index = index + 1
+    return xy_values[:_max_index(xy_values)]
+
 
 def create_quantile_chart(prefix, workload, title, y_label, time_series):
-    import math
+    def _fmt_val(x):
+        return '{:,.3f}%'.format(100.0 - (100.0 / (10**x)))
     chart = pygal.XY(style=theme,
-                     dots_size=0.5,
+                     dots_size=2,
                      legend_at_bottom=True,
                      truncate_legend=37,
-                     x_value_formatter=lambda x: '{:,.3f} %'.format(100.0 -
-                                                                    (100.0 /
-                                                                     (10**x))),
+                     x_value_formatter=_fmt_val,
                      show_dots=True,
                      fill=fill,
                      stroke_style={'width': 2},
                      show_y_guides=True,
-                     show_x_guides=False)
+                     show_x_guides=True)
+    # chart = pygal.XY()
     chart.title = title
-    # chart.stroke = False
-
     chart.human_readable = True
     chart.y_title = y_label
     chart.x_title = 'Percentile'
-    chart.x_labels = [0.30103, 1, 2, 3, 4, 5]
-
+    chart.x_labels = [1, 3, 5, 8]
     for label, values, opts in time_series:
-        values = sorted((float(x), y) for x, y in values.items())
-        xy_values = [(math.log10(100 / (100 - x)), y) for x, y in values
-                     if x <= 99.999]
+        xy_values = _clean_xy_values(values)    
         chart.add(label, xy_values, stroke_style=opts)
 
     file_list[prefix].append(f'{workload}.svg')
@@ -154,8 +172,7 @@ def create_chart(prefix, workload, title, y_label, time_series):
     chart.human_readable = True
     chart.y_title = y_label
     chart.x_title = 'Time (seconds)'
-    # line_chart.x_labels = [str(10 * x) for x in range(len(time_series[0][1]))]
-
+    
     ys = []
     for label, values in time_series:
         ys.append(values)
@@ -210,11 +227,7 @@ def generate_charts(files):
     drivers = []
 
     pub_rate_avg = {}
-    pub_rate_avg["Throughput (MB/s)"] = []
-
-    # colors = ['#66CC69', '#173361', '#D8365D']
-    #colors = ['#66CC69', '#667C69', '#173361', '#D8365D', '#78365D']
-    colors = ['#80000', '#f58231', '#ffe119', '#000075', '#000075']
+    pub_rate_avg["Throughput (MB/s): higher is better"] = []
 
     # Aggregate across all runs
     count = 0
@@ -232,19 +245,12 @@ def generate_charts(files):
         stat_e2e_lat_quantile.append(
             data['aggregatedEndToEndLatencyQuantiles'])
         drivers.append(data['file'])
-
-        # if (count >= len(aggregate)/2):
-        #     pub_rate_avg[args.barlabels[1]].append(
-        #         sum(data['publishRate'])/len(data['publishRate']))
-        # else:
-        #     pub_rate_avg[args.barlabels[0]].append(
-        #         sum(data['publishRate'])/len(data['publishRate']))
-        pub_rate_avg["Throughput (MB/s)"].append({
+        pub_rate_avg["Throughput (MB/s): higher is better"].append({
             'value':
             (sum(data['publishRate']) / len(data['publishRate']) * 1024) /
             (1024.0 * 1024.0),
             'color':
-            colors[count]
+            graph_colors[count % len(graph_colors)]
         })
         count = count + 1
 
@@ -264,7 +270,7 @@ def generate_charts(files):
 
     # Generate publish rate bar-chart
     svg = prefix + '-publish-rate-bar'
-    create_bar_chart(prefix, svg, 'Throughput (MB/s)', 'MB/s', drivers,
+    create_bar_chart(prefix, svg, 'Throughput (MB/s): higher is better', 'MB/s', drivers,
                      pub_rate_avg)
 
     # Generate latency quantiles
@@ -272,7 +278,7 @@ def generate_charts(files):
     svg = prefix + '-latency-quantile'
     create_quantile_chart(prefix,
                           svg,
-                          'Publish Latency Percentiles',
+                          'Publish Latency Percentiles: lower is better',
                           y_label='Latency (ms)',
                           time_series=time_series)
 
@@ -280,7 +286,7 @@ def generate_charts(files):
     svg = prefix + '-e2e-latency-quantile'
     create_quantile_chart(prefix,
                           svg,
-                          'End-to-End Latency Percentiles',
+                          'End-to-End Latency Percentiles: lower is better',
                           y_label='Latency (ms)',
                           time_series=time_series)
 
@@ -289,7 +295,7 @@ def generate_charts(files):
     time_series = zip(drivers, stats_lat_p99)
     create_chart(prefix,
                  svg,
-                 'Publish Latency - 99th Percentile',
+                 'Publish Latency - 99th Percentile: lower is better',
                  y_label='Latency (ms)',
                  time_series=time_series)
 
@@ -298,7 +304,7 @@ def generate_charts(files):
     time_series = zip(drivers, stat_lat_avg)
     create_chart(prefix,
                  svg,
-                 'End-to-end Latency - Average',
+                 'End-to-end Latency - Average: lower is better',
                  y_label='Latency (ms)',
                  time_series=time_series)
 
@@ -307,7 +313,7 @@ def generate_charts(files):
     time_series = zip(drivers, stats_pub_rate)
     create_chart(prefix,
                  svg,
-                 'Publish Rate',
+                 'Publish Rate: higher is better',
                  y_label='Message/s',
                  time_series=time_series)
 
@@ -376,7 +382,7 @@ if __name__ == "__main__":
 <html>
 <head>
 
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 </head>
 <body >
 <div class="container">
@@ -385,7 +391,7 @@ if __name__ == "__main__":
     <div class='row'>
     <div class='well col-md-12'><h2>{{prefix}}<h2></div>
     {% for file in file_list[prefix] %}
-        <div class="embed-responsive embed-responsive-16by9 col-md-6">
+        <div class="embed-responsive embed-responsive-4by3">
             <embed class=embed-responsive-item" type="image/svg+xml" src="{{file}}"/>
         </div>
     {% endfor %}
