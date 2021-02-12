@@ -188,6 +188,11 @@ def create_chart(prefix, workload, title, y_label, time_series):
     chart.render_to_file(f'{output}{workload}.svg')
 
 
+def terminal_print_p99999(title, data):
+    target = list(data.keys())[-2]
+    value = data[target]
+    print(title, target, value)
+
 def generate_charts(files):
 
     aggregate = []
@@ -198,6 +203,7 @@ def generate_charts(files):
     rate = 0
 
     for file in sorted(files):
+        print(file)
         data = json.load(open(file))
         m = re.search(
             r'^(\d+)-topic-(\d+)-partitions-(\d+)kb-(\d+)-producers-(\d+)k-rate-(\w+)-.*',
@@ -244,6 +250,7 @@ def generate_charts(files):
         stat_lat_quantile.append(data['aggregatedPublishLatencyQuantiles'])
         stat_e2e_lat_quantile.append(
             data['aggregatedEndToEndLatencyQuantiles'])
+        terminal_print_p99999(data['file'],data['aggregatedEndToEndLatencyQuantiles'])
         drivers.append(data['file'])
         pub_rate_avg["Throughput (MB/s): higher is better"].append({
             'value':
