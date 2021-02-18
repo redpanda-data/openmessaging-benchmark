@@ -34,11 +34,11 @@ from jinja2 import Template
 from collections import defaultdict
 
 graph_colors = ['#202020', # dark gray 
+                '#828282', # light gray
+                '#FF0000', # redpanda red1
+                '#D85556', # redpanda red2
                 '#0000ff', # blue 
-                '#ff0000', # red
-                '#00ff00', 
                 '#ff00ff', 
-                '#ffff00', 
                 '#00ffff', 
                 '#ffd700']
 chartStyle = Style(
@@ -62,22 +62,23 @@ def _clean_xy_values(values):
     # do not restrict to any percentiles. show the max; the outliers
     # are where the goodies lie
     def _x_axis(x):
-        if x < 100: 
-            return math.log10(100 / (100 - x))
-        return x
+        if x < 100.0: x = math.log10(100 / (100 - x))
+        # clamp
+        return min(x, 100.0)
+ 
     xy_values = [(_x_axis(x), y) for x, y in values]
-    found_normalized_max = False
-    def _max_index(clean_vals):
-        index = 0
-        for x, y in clean_vals:
-            if 100 == int(x): return index
-            index = index + 1
-    return xy_values[:_max_index(xy_values)]
+    needle_idx = len(xy_values)-1
+    while needle_idx > 0:
+        x = round(xy_values[needle_idx][0],2)
+        if x < 100.00:
+            return xy_values[0:needle_idx]
+        needle_idx = needle_idx-1
+    return xy_values
 
 
 def create_quantile_chart(prefix, workload, title, y_label, time_series):
     def _fmt_val(x):
-        return '{:,.3f}%'.format(100.0 - (100.0 / (10**x)))
+        return 'p{:,.3f}'.format(100.0 - (100.0 / (10**x)))
     chart = pygal.XY(style=theme,
                      dots_size=2,
                      legend_at_bottom=True,
@@ -93,9 +94,13 @@ def create_quantile_chart(prefix, workload, title, y_label, time_series):
     chart.human_readable = True
     chart.y_title = y_label
     chart.x_title = 'Percentile'
-    chart.x_labels = [1, 3, 5, 8]
+    chart.x_labels = [0.31, 1, 3, 5]
+    chart.x_label_rotation=20
+    chart.x_labels_major_count=4
+    chart.show_minor_x_labels=False
+    chart.tooltip_border_radius=10
     for label, values, opts in time_series:
-        xy_values = _clean_xy_values(values)    
+        xy_values = _clean_xy_values(values)  
         chart.add(label, xy_values, stroke_style=opts)
 
     file_list[prefix].append(f'{workload}.svg')
@@ -133,7 +138,6 @@ def create_multi_chart(prefix, svg_file_name, title, y_label_1, y_label_2,
         if max_y_1 < y:
             max_y_1 = y
     chart.range = (0, max_y_1 * 1.20)
-
     file_list[prefix].append(f'{path.basename(svg_file_name)}.svg')
     chart.render_to_file(f'{svg_file_name}.svg')
 
