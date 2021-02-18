@@ -39,10 +39,11 @@
           - chrony
           - git
           - gcc
+          - tuned
         state: present
         update_cache: true
     - name: Install Java Redhat
-      when: ansible_os_family == 'Redhat'
+      when: ansible_os_family == 'RedHat'
       package: 
         name: 
           - java-11
@@ -289,7 +290,7 @@
 
 # Install the monitoring stack
 - name: Install Node Exporter
-  hosts: redpanda
+  hosts: redpanda, client
   roles:
   - cloudalchemy.node-exporter
 
@@ -337,6 +338,7 @@
       - job_name: "node"
         static_configs:
           - targets: "{{ groups['redpanda'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
+          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
       - job_name: "client - jmx"
         static_configs:
           - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:9090') | list }}"
