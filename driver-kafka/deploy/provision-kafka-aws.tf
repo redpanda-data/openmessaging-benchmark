@@ -144,6 +144,12 @@ resource "aws_instance" "zookeeper" {
   count                  = "${var.num_instances["zookeeper"]}"
   monitoring             = true
 
+	root_block_device {
+		volume_size = 100
+		volume_type = "io1"
+		iops = 1000
+	}
+
   tags = {
     Name = "zk-${count.index}"
   }
@@ -185,6 +191,10 @@ resource "aws_instance" "prometheus" {
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["prometheus"]}"
 
+	root_block_device {
+		volume_size = 20
+  }
+
   tags = {
     Name = "prometheus-${count.index}"
   }
@@ -212,5 +222,12 @@ output "zookeeper" {
 }
 
 output "prometheus_host" {
-  value = "${aws_instance.prometheus.0.public_ip}"
+  value = {
+    for instance in aws_instance.prometheus :
+    instance.public_ip => instance.private_ip
+  }
 }
+
+#output "client_ssh_host" {
+#  value = "${aws_instance.client.0.public_ip}"
+#}
