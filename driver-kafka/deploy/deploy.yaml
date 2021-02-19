@@ -21,7 +21,7 @@
   hosts: kafka, client
   become: true
   tags:
-    - profile
+    - ["never", "profile"]
   tasks:
     - set_fact:
         time: "{{ ansible_date_time.epoch }}"
@@ -119,6 +119,7 @@
         - chrony
         - git
         - gcc
+        - make
 
 - name: Kafka installation
   hosts: kafka, zookeeper
@@ -130,7 +131,7 @@
     - set_fact:
         zookeeperServers: "{{ groups['zookeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
         boostrapServers: "{{ groups['kafka'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
-        kafkaVersion: "2.6.0"
+        kafkaVersion: "2.7.0"
     - debug:
         msg: "zookeeper servers: {{ zookeeperServers }}\nboostrap servers: {{ boostrapServers }}"
 
@@ -231,7 +232,11 @@
         repo: "https://github.com/sysstat/sysstat"
         dest: "/opt/sysstat"
     - name: Compile and install sysstat from source
-      command: cd /opt/sysstat && ./configure && make -j`nproc` && sudo make install
+      shell: |
+        cd /opt/sysstat 
+        ./configure 
+        make -j`nproc` 
+        sudo make install
 
 - name: Chrony setup
   hosts: client
@@ -319,7 +324,7 @@
 
 # Install the monitoring stack
 - name: Install Node Exporter
-  hosts: kafka
+  hosts: kafka, client
   roles:
   - cloudalchemy.node-exporter
 
@@ -334,6 +339,7 @@
       - job_name: "node"
         static_configs:
           - targets: "{{ groups['kafka'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
+          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
       - job_name: "client - jmx"
         static_configs:
           - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:9090') | list }}"
