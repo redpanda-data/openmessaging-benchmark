@@ -24,7 +24,7 @@
 4. To setup the deployed nodes. Run:
 
         ansible-playbook \
-            --user fedora \
+            --user ubuntu \
             --inventory `which terraform-inventory` \
         deploy.yaml
 
@@ -32,7 +32,7 @@
 
 1. SSH to the client machine. 
 
-		ssh -i ~/.ssh/redpanda_aws fedora@$(terraform output client_ssh_host)
+		ssh -i ~/.ssh/redpanda_aws ubuntu@$(terraform output client_ssh_host)
 
 2. Change into the benchmark directory 
 
