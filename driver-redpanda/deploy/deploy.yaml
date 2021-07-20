@@ -135,13 +135,13 @@
     - name: add the redpanda yum repo
       when: ansible_os_family == 'RedHat'
       shell: |
-        curl -s https://ceba06f0585fdd548c3106334751dcd75abf0d043320fab5:@packagecloud.io/install/repositories/vectorizedio/v/script.rpm.sh | sudo bash
+        curl -1sLf 'https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.rpm.sh' | sudo -E bash
       args: 
         warn: no 
     - name: add the repanda apt repo
       when: ansible_os_family == 'Debian'
       shell: |
-        curl -s https://ceba06f0585fdd548c3106334751dcd75abf0d043320fab5:@packagecloud.io/install/repositories/vectorizedio/v/script.deb.sh | sudo bash
+        curl -1sLf 'https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh' | sudo -E bash
       args:
         warn: no
     - name: install redpanda
@@ -292,7 +292,7 @@
 - name: Install Node Exporter
   hosts: redpanda, client
   roles:
-  - cloudalchemy.node-exporter
+  - cloudalchemy.node_exporter
 
 - name: create a local tmp directory
   hosts: localhost
