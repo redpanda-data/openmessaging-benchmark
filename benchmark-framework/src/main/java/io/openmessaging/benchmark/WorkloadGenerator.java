@@ -106,7 +106,7 @@ public class WorkloadGenerator implements AutoCloseable {
 
         worker.startLoad(producerWorkAssignment);
 
-        printAndCollectStats(30, TimeUnit.MINUTES);
+        printAndCollectStats(workload.warmupDurationMinutes, TimeUnit.MINUTES);
 
         if (workload.consumerBacklogSizeGB > 0) {
             executor.execute(() -> {
