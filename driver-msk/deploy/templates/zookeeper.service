@@ -1,0 +1,14 @@
+[Unit]
+Description=ZooKeeper
+After=network.target
+
+[Service]
+Environment="EXTRA_ARGS=-javaagent:/opt/kafka/jmx_prometheus_javaagent-0.13.0.jar=7070:/opt/kafka/zookeeper.yml"
+ExecStart=/opt/kafka/bin/zookeeper-server-start.sh config/zookeeper.properties
+WorkingDirectory=/opt/kafka
+RestartSec=1s
+Restart=on-failure
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
