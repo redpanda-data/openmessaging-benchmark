@@ -6,10 +6,10 @@ kafka_version       = "2.6.2"
 
 instance_types = {
   "client"     = "m5.4xlarge"
-  "broker"     = "kafka.m5.4xlarge"
+  "broker"     = "kafka.m5.2xlarge"
 }
 
 num_instances = {
   "client"     = 2
-  "broker"     = 3
+  "broker"     = 9
 }
