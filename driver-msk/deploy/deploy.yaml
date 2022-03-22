@@ -18,7 +18,7 @@
 #
 
 - name: Collect profiles
-  hosts: kafka, client
+  hosts: client
   become: true
   tags:
     - ["never", "profile"]
@@ -67,38 +67,18 @@
         dest: results/{{ group_names[0] }}/{{ time }}/{{ inventory_hostname }}/heap.svg
         flat: yes
 
-- name: Format and mount disks for Kafka hosts
-  hosts: kafka
-  connection: ssh
-  become: true
-  tasks:
-    - command: >
-        tuned-adm profile latency-performance
-    - name: Format disks
-      filesystem:
-        fstype: xfs
-        dev: "{{ item }}"
-      with_items:
-        - "/dev/nvme1n1"
-        - "/dev/nvme2n1"
-    - name: Mount disks
-      mount:
-        path: "{{ item.path }}"
-        src: "{{ item.src }}"
-        fstype: xfs
-        opts: defaults,noatime,nodiscard
-        state: mounted
-      with_items:
-        - { path: "/mnt/data-1", src: "/dev/nvme1n1" }
-        - { path: "/mnt/data-2", src: "/dev/nvme2n1" }
-
 - name: Store server lists
   hosts: all
   connection: ssh
   tasks:
     - set_fact:
-        zookeeperServers: "{{ groups['zookeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
-        boostrapServers: "{{ groups['kafka'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
+#        zookeeperServers: "{{ groups['zookeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
+#        boostrapServers: "{{ groups['kafka'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
+#        zookeeperServers: "{{ map('extract', hostvars, ['zookeeperServers']) }}"
+#        boostrapServers: "{{ map('extract', hostvars, ['boostrapServers']) }}"
+  #boostrapServers: "{{ groups['all'] | map('extract', hostvars, ['vars']) }}"
+        zookeeperServers: "{{ groups['all'] | map('extract', hostvars, ['zookeeperServers']) }}"
+        boostrapServers: "{{ groups['all'] | map('extract', hostvars, ['boostrapServers']) }}"
 
 - name: Setup common packages
   hosts: all
@@ -120,123 +100,6 @@
         - git
         - gcc
         - make
-
-- name: Kafka installation
-  hosts: kafka, zookeeper
-  connection: ssh
-  become: true
-  tasks:
-    - file: path=/opt/kafka state=absent
-    - file: path=/opt/kafka state=directory
-    - set_fact:
-        zookeeperServers: "{{ groups['zookeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
-        boostrapServers: "{{ groups['kafka'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
-        kafkaVersion: "2.7.0"
-    - debug:
-        msg: "zookeeper servers: {{ zookeeperServers }}\nboostrap servers: {{ boostrapServers }}"
-
-    #################### Release ####################
-    - name: Download Kafka package
-      unarchive:
-        src: http://mirrors.ocf.berkeley.edu/apache/kafka/{{ kafkaVersion }}/kafka_2.13-{{ kafkaVersion }}.tgz
-        remote_src: yes
-        dest: /opt/kafka
-        extra_opts: ["--strip-components=1"]
-
-    #################### Staging ####################
-    # # https://access.redhat.com/articles/5117881
-    # - name: Fix Sectigo Root CA expiration issue
-    #   shell: |
-    #     trust dump --filter "pkcs11:id=%ad%bd%98%7a%34%b4%26%f7%fa%c4%26%54%ef%03%bd%e0%24%cb%54%1a;type=cert" > /etc/pki/ca-trust/source/blacklist/addtrust-external-root.p11-kit
-    #     update-ca-trust
-    # - name: Download Kafka package
-    #   unarchive:
-    #     src: https://home.apache.org/~rhauch/kafka-2.6.0-rc2/kafka_2.13-2.6.0.tgz
-    #     remote_src: yes
-    #     dest: /opt/kafka
-    #     extra_opts: ["--strip-components=1"]
-
-    #################### Custom build ####################
-    # - name: Copy Kafka
-    #   unarchive:
-    #     src: /Users/anikhil/offsets_patch/core/build/distributions/kafka_2.13-2.7.0-SNAPSHOT.tgz
-    #     dest: /opt/kafka
-    #     extra_opts: ["--strip-components=1"]
-
-    - set_fact:
-        privateIp: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
-    - name: Change locale to en_US.utf-8
-      shell: |
-        echo 'LANG=en_US.utf-8
-              LC_ALL=en_US.utf-8' > /etc/environment
-    - name: Setup JMX for Prometheus
-      copy:
-        src: "monitoring/jmx_exporter/jmx_prometheus_javaagent-0.13.0.jar"
-        dest: "/opt/kafka/jmx_prometheus_javaagent-0.13.0.jar"
-    - name: Configure JMX for Prometheus (Kafka)
-      template:
-        src: "monitoring/jmx_exporter/metrics.yml"
-        dest: "/opt/kafka/metrics.yml"
-    - name: Configure JMX for Prometheus (Zookeeper)
-      template:
-        src: "monitoring/jmx_exporter/zookeeper.yml"
-        dest: "/opt/kafka/zookeeper.yml"
-
-- name: Setup ZooKeeper
-  hosts: zookeeper
-  connection: ssh
-  become: true
-  tasks:
-    - set_fact:
-        zid: "{{ groups['zookeeper'].index(inventory_hostname) }}"
-    - file:
-        path: "/opt/kafka/data/zookeeper"
-        state: directory
-    - template:
-        src: "templates/zookeeper.properties"
-        dest: "/opt/kafka/config/zookeeper.properties"
-    - template:
-        src: templates/myid
-        dest: "/opt/kafka/data/zookeeper/myid"
-    - template:
-        src: "templates/zookeeper.service"
-        dest: "/etc/systemd/system/zookeeper.service"
-    - systemd:
-        state: restarted
-        daemon_reload: yes
-        name: "zookeeper"
-
-- name: Setup Kafka
-  hosts: kafka
-  connection: ssh
-  become: true
-  tags:
-    - configure
-  tasks:
-    - set_fact:
-        brokerId: "{{ groups['kafka'].index(inventory_hostname) }}"
-        privateIp: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
-        zookeeperServers: "{{ groups['zookeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
-    - name: Set up broker
-      template:
-        src: "templates/server.properties"
-        dest: "/opt/kafka/config/server.properties"
-    - template:
-        src: "templates/kafka.service"
-        dest: "/etc/systemd/system/kafka.service"
-    - systemd:
-        state: restarted
-        daemon_reload: yes
-        name: "kafka"
-    - git:
-        repo: "https://github.com/sysstat/sysstat"
-        dest: "/opt/sysstat"
-    - name: Compile and install sysstat from source
-      shell: |
-        cd /opt/sysstat 
-        ./configure 
-        make -j`nproc` 
-        sudo make install
 
 - name: Chrony setup
   hosts: client
@@ -312,40 +175,40 @@
   hosts: localhost
   become: false
   tasks:
-    - debug:
-        msg: "Zookeeper servers {{ item }}"
-      with_items: "{{ groups['zookeeper'] }}"
-    - debug:
-        msg: "Kafka brokers {{ item }}"
-      with_items: "{{ groups['kafka'] }}"
+#    - debug:
+#        msg: "Zookeeper servers {{ item }}"
+#      with_items: "{{ groups['zookeeper'] }}"
+#    - debug:
+#        msg: "Kafka brokers {{ item }}"
+#      with_items: "{{ groups['kafka'] }}"
     - debug:
         msg: "Benchmark clients {{ item }}"
       with_items: "{{ groups['client'] }}"
 
 # Install the monitoring stack
-- name: Install Node Exporter
-  hosts: kafka, client
-  roles:
-  - cloudalchemy.node-exporter
+#- name: Install Node Exporter
+#  hosts: client
+#  roles:
+#  - cloudalchemy.node-exporter
 
-- hosts: prometheus
-  roles:
-  - cloudalchemy.prometheus
-  vars:
-    prometheus_scrape_configs:
-      - job_name: "broker"
-        static_configs:
-          - targets: "{{ groups['kafka'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:8080') | list  }}"
-      - job_name: "node"
-        static_configs:
-          - targets: "{{ groups['kafka'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
-          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
-      - job_name: "client - jmx"
-        static_configs:
-          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:9090') | list }}"
-      - job_name: "client"
-        static_configs:
-          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:8081') | list }}"
+#- hosts: prometheus
+#  roles:
+#  - cloudalchemy.prometheus
+#  vars:
+#    prometheus_scrape_configs:
+#      - job_name: "broker"
+#        static_configs:
+#          - targets: "{{ groups['kafka'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:8080') | list  }}"
+#      - job_name: "node"
+#        static_configs:
+#          - targets: "{{ groups['kafka'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
+#          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
+#      - job_name: "client - jmx"
+#        static_configs:
+#          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:9090') | list }}"
+#      - job_name: "client"
+#        static_configs:
+#          - targets: "{{ groups['client'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:8081') | list }}"
 
 #- name: jmx export setup
 #  hosts: prometheus

@@ -162,14 +162,6 @@ resource "aws_security_group" "sg-client" {
   }
 }
 
-resource "aws_kms_key" "kms" {
-  description = "example"
-}
-
-resource "aws_cloudwatch_log_group" "test" {
-  name = "msk_broker_logs"
-}
-
 resource "aws_msk_cluster" "bench" {
   cluster_name           = "bench"
   kafka_version          = var.kafka_version
@@ -188,7 +180,10 @@ resource "aws_msk_cluster" "bench" {
   }
 
   encryption_info {
-    encryption_at_rest_kms_key_arn = aws_kms_key.kms.arn
+    encryption_in_transit {
+      client_broker = "PLAINTEXT"
+      in_cluster    = false
+    }
   }
 
   open_monitoring {
@@ -207,16 +202,6 @@ resource "aws_msk_cluster" "bench" {
   }
 }
 
-output "zookeeper_connect_string" {
-  value = aws_msk_cluster.bench.zookeeper_connect_string
-}
-
-output "bootstrap_brokers_tls" {
-  description = "TLS connection host:port pairs"
-  value       = aws_msk_cluster.bench.bootstrap_brokers_tls
-}
-
-
 ###
 # Get public IP of this machine
 data "http" "myip" {
@@ -229,15 +214,14 @@ resource "aws_key_pair" "auth" {
 }
 
 resource "aws_instance" "client" {
-  ami                    = "${var.ami}"
-  instance_type          = "${var.instance_types["client"]}"
-  key_name               = "${aws_key_pair.auth.id}"
-#  subnet_id              = aws_subnet.subnet_clients.id
-  subnet_id              = aws_subnet.subnet_az1.id
+  ami                         = "${var.ami}"
+  instance_type               = "${var.instance_types["client"]}"
+  key_name                    = "${aws_key_pair.auth.id}"
+  subnet_id                   = aws_subnet.subnet_az1.id
   associate_public_ip_address = true
-  vpc_security_group_ids = [aws_security_group.sg-client.id]
-  count                  = "${var.num_instances["client"]}"
-  monitoring             = true
+  vpc_security_group_ids      = [aws_security_group.sg-client.id]
+  count                       = "${var.num_instances["client"]}"
+  monitoring                  = true
 
   tags = {
     Name = "kafka-client-${count.index}"
@@ -254,6 +238,29 @@ output "clients" {
         instance.public_ip => instance.private_ip
   }
 }
+
+output "zookeeperServers" {
+  value = aws_msk_cluster.bench.zookeeper_connect_string
+}
+
+output "boostrapServers" {
+  value       = aws_msk_cluster.bench.bootstrap_brokers
+}
+
+output "zookeeper" {
+  value = {
+    for instance in "${split (",", aws_msk_cluster.bench.zookeeper_connect_string)}" :
+        "${element (split (":",instance),0)}" => "${element (split (":",instance),0)}"
+  }
+}
+
+output "brokers" {
+  value = {
+    for instance in "${split (",", aws_msk_cluster.bench.bootstrap_brokers)}" :
+        "${element (split (":",instance),0)}" => "${element (split (":",instance),0)}"
+  }
+}
+
 
 #output "client_ssh_host" {
 #  value = "${aws_instance.client.0.public_ip}"
