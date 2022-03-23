@@ -94,7 +94,7 @@ resource "aws_security_group" "sg" {
     from_port   = 0
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
+    cidr_blocks = ["192.168.0.0/22"]
   }
 
   # outbound internet access
@@ -130,7 +130,7 @@ resource "aws_security_group" "sg-client" {
     from_port   = 0
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
+    cidr_blocks = ["192.168.0.0/22"]
   }
 
   # All ports open to this machine
