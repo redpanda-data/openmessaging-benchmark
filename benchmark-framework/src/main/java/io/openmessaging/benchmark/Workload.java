@@ -71,7 +71,7 @@ public class Workload {
             throw new IllegalArgumentException("Consumer only tests need a backlog specification");
         }
 
-        if (producerRate <= 0) {
+        if (producerRate < 0) {
             throw new IllegalArgumentException("Producer rate should be > 0");
         }
     }
