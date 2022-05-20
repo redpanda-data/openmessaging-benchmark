@@ -67,7 +67,7 @@ resource "aws_subnet" "benchmark_subnet" {
   vpc_id                  = aws_vpc.benchmark_vpc.id
   cidr_block              = "10.0.0.0/24"
   map_public_ip_on_launch = true
-  availability_zone       = "us-west-2b"
+  availability_zone       = "us-west-2a"
 }
 
 # Get public IP of this machine
