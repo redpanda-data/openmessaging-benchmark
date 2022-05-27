@@ -142,6 +142,12 @@ public class WorkerHandler {
             histogramSerializationBuffer.get(stats.publishLatencyBytes);
 
             histogramSerializationBuffer.clear();
+            stats.publishDelayLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
+            stats.publishDelayLatencyBytes = new byte[histogramSerializationBuffer.position()];
+            histogramSerializationBuffer.flip();
+            histogramSerializationBuffer.get(stats.publishDelayLatencyBytes);
+
+            histogramSerializationBuffer.clear();
             stats.endToEndLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
             stats.endToEndLatencyBytes = new byte[histogramSerializationBuffer.position()];
             histogramSerializationBuffer.flip();
@@ -161,6 +167,12 @@ public class WorkerHandler {
             stats.publishLatencyBytes = new byte[histogramSerializationBuffer.position()];
             histogramSerializationBuffer.flip();
             histogramSerializationBuffer.get(stats.publishLatencyBytes);
+
+            histogramSerializationBuffer.clear();
+            stats.publishDelayLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
+            stats.publishDelayLatencyBytes = new byte[histogramSerializationBuffer.position()];
+            histogramSerializationBuffer.flip();
+            histogramSerializationBuffer.get(stats.publishDelayLatencyBytes);
 
             histogramSerializationBuffer.clear();
             stats.endToEndLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);

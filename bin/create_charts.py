@@ -43,21 +43,37 @@ def create_charts(test_results):
                      y_label='Latency (ms)',
                      time_series=[(x['driver'], x['publishLatency99pct']) for x in results])
 
+        create_chart(workload, 'Publish Delay latency 99pct',
+                     y_label='Latency (us)',
+                     time_series=[(x['driver'], x['publishDelayLatency99pct']) for x in results])
+
         create_chart(workload, 'Publish rate',
                      y_label='Rate (msg/s)',
                      time_series=[(x['driver'], x['publishRate']) for x in results])
+
+        create_chart(workload, 'End To End Latency 95pct',
+                     y_label='Latency (ms)',
+                     time_series=[(x['driver'], x['endToEndLatency95pct']) for x in results])
 
         create_chart(workload, 'Consume rate',
                      y_label='Rate (msg/s)',
                      time_series=[(x['driver'], x['consumeRate']) for x in results])
 
-        create_chart(workload, 'endToEndLatencyAvg',
-                     y_label='LatencyAvg msec',
+        create_chart(workload, 'End To End Latency Avg',
+                     y_label='Latency Avg (msec)',
                      time_series=[(x['driver'], x['endToEndLatencyAvg']) for x in results])
 
-        create_quantile_chart(workload, 'Publish latency quantiles',
+        create_quantile_chart(workload, 'Publish Latency Quantiles',
                               y_label='Latency (ms)',
                               time_series=[(x['driver'], x['aggregatedPublishLatencyQuantiles']) for x in results])
+
+        create_quantile_chart(workload, 'Publish Delay Latency Quantiles',
+                              y_label='Latency (us)',
+                              time_series=[(x['driver'], x['aggregatedPublishDelayLatencyQuantiles']) for x in results])
+
+        create_quantile_chart(workload, 'End To End Latency Quantiles',
+                              y_label='Latency (ms)',
+                              time_series=[(x['driver'], x['aggregatedEndToEndLatencyQuantiles']) for x in results])
 
 
 def create_chart(workload, title, y_label, time_series):
