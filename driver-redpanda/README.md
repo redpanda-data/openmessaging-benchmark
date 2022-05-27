@@ -51,7 +51,7 @@ Then try running the ansible command again.
 
 1. SSH to the client machine. 
 
-		ssh -i ~/.ssh/redpanda_aws ubuntu@$(terraform output client_ssh_host)
+		ssh -i ~/.ssh/redpanda_aws ubuntu@$(terraform output --raw client_ssh_host)
 
 2. Change into the benchmark directory 
 
