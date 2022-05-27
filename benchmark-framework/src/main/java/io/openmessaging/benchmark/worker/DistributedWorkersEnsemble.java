@@ -68,7 +68,7 @@ public class DistributedWorkersEnsemble implements Worker {
     private int numberOfUsedProducerWorkers;
 
     public DistributedWorkersEnsemble(List<String> workers) {
-        Preconditions.checkArgument(workers.size() > 1);
+        Preconditions.checkArgument(workers.size() > 1, "Workers must be > 1");
 
         this.workers = workers;
         List<List<String>> partitions = Lists.partition(workers, workers.size() / 2);
@@ -228,6 +228,9 @@ public class DistributedWorkersEnsemble implements Worker {
                 stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
 
+                stats.publishDelayLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                        ByteBuffer.wrap(is.publishDelayLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
+
                 stats.endToEndLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.endToEndLatencyBytes), TimeUnit.HOURS.toMicros(12)));
             } catch (ArrayIndexOutOfBoundsException | DataFormatException e) {
@@ -249,6 +252,15 @@ public class DistributedWorkersEnsemble implements Worker {
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
             } catch (Exception e) {
                 log.error("Failed to decode publish latency");
+                throw new RuntimeException(e);
+            }
+
+            try {
+                stats.publishDelayLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                        ByteBuffer.wrap(is.publishDelayLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
+            } catch (Exception e) {
+                log.error("Failed to decode publish delay latency: {}",
+                          ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(is.publishDelayLatencyBytes)));
                 throw new RuntimeException(e);
             }
 
@@ -297,7 +309,7 @@ public class DistributedWorkersEnsemble implements Worker {
                 log.error("Failed to do HTTP post request to {}{} -- code: {} error: {}", host, path, x.getStatusCode(),
                         x.getResponseBody());
             }
-            Preconditions.checkArgument(x.getStatusCode() == 200);
+            Preconditions.checkArgument(x.getStatusCode() == 200, "Status should be 200");
             return (Void) null;
         });
     }
@@ -323,7 +335,7 @@ public class DistributedWorkersEnsemble implements Worker {
                     log.error("Failed to do HTTP get request to {}{} -- code: {}", host, path,
                             response.getStatusCode());
                 }
-                Preconditions.checkArgument(response.getStatusCode() == 200);
+                Preconditions.checkArgument(response.getStatusCode() == 200, "Status should be 200");
                 return mapper.readValue(response.getResponseBody(), clazz);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -338,7 +350,7 @@ public class DistributedWorkersEnsemble implements Worker {
                     log.error("Failed to do HTTP post request to {}{} -- code: {}", host, path,
                             response.getStatusCode());
                 }
-                Preconditions.checkArgument(response.getStatusCode() == 200);
+                Preconditions.checkArgument(response.getStatusCode() == 200, "Status should be 200");
                 return mapper.readValue(response.getResponseBody(), type);
             } catch (IOException e) {
                 throw new RuntimeException(e);

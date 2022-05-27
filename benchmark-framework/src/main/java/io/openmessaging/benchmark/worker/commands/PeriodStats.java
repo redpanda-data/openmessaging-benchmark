@@ -34,6 +34,11 @@ public class PeriodStats {
     public byte[] publishLatencyBytes;
 
     @JsonIgnore
+    public Histogram publishDelayLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
+    public byte[] publishDelayLatencyBytes;
+
+
+    @JsonIgnore
     public Histogram endToEndLatency = new Histogram(TimeUnit.HOURS.toMicros(12), 5);
     public byte[] endToEndLatencyBytes;
 }
