@@ -18,6 +18,7 @@
 # under the License.
 #
 
+import glob
 import json
 import sys
 import statistics
@@ -28,7 +29,6 @@ import re
 import pygal
 from pygal.style import Style
 from itertools import chain
-from os import walk
 from os import path
 from jinja2 import Template
 from collections import defaultdict
@@ -192,36 +192,22 @@ def create_chart(prefix, workload, title, y_label, time_series):
     chart.render_to_file(f'{output}{workload}.svg')
 
 
-def terminal_print_p99999(title, data):
-    target = list(data.keys())[-2]
-    value = data[target]
-    print(title, target, value)
-
 def generate_charts(files):
 
     aggregate = []
-    topics = 0
-    partitions = 0
-    message_size = 0
-    producers = 0
-    rate = 0
 
+    # Charts are labeled based on benchmark names, we need them
+    # to be unique. A combination of (driver, workload) defines
+    # a unique benchmark and name is "{driver}-{workload}".
+    benchmark_names = set()
     for file in sorted(files):
-        print(file)
         data = json.load(open(file))
-        m = re.search(
-            r'^(\d+)-topic-(\d+)-partitions-(\d+)kb-(\d+)-producers-(\d+)k-rate-(\w+)-.*',
-            path.basename(file))
-        if m:
-            topic = m.group(1)
-            partitions = m.group(2)
-            message_size = m.group(3)
-            producers = m.group(4)
-            rate = m.group(5)
-            data['file'] = m.group(6)
-        else:
-            print("Something is not right with the file names!")
+        name = "{driver}-{workload}".format(driver=data['driver'], workload=data['workload'])
+        if name in benchmark_names:
+            print(f"Duplicate benchmark found: {name} in file {file}")
             exit(-1)
+        benchmark_names.add(name)
+        data['name'] = name
         aggregate.append(data)
 
     stats_pub_rate = []
@@ -241,7 +227,25 @@ def generate_charts(files):
 
     # Aggregate across all runs
     count = 0
+    curated_metrics = {} # to dump to stdout
+    metrics_of_interest = [
+        "aggregatedPublishLatencyAvg",
+        "aggregatedPublishLatency50pct",
+        "aggregatedPublishLatency99pct",
+        "aggregatedPublishLatencyMax",
+        "aggregatedPublishDelayLatencyAvg",
+        "aggregatedPublishDelayLatency50pct",
+        "aggregatedPublishDelayLatency99pct",
+        "aggregatedEndToEndLatencyAvg",
+        "aggregatedEndToEndLatency50pct",
+        "aggregatedEndToEndLatency99pct",
+        "aggregatedEndToEndLatency9999pct",
+        "aggregatedEndToEndLatencyMax",
+    ]
+
     for data in aggregate:
+        metrics = dict()
+        curated_metrics[data['name']] = metrics
         stats_pub_rate.append(data['publishRate'])
         stats_con_rate.append(data['consumeRate'])
         stats_backlog.append(data['backlog'])
@@ -254,16 +258,20 @@ def generate_charts(files):
         stat_lat_quantile.append(data['aggregatedPublishLatencyQuantiles'])
         stat_e2e_lat_quantile.append(
             data['aggregatedEndToEndLatencyQuantiles'])
-        terminal_print_p99999(data['file'],data['aggregatedEndToEndLatencyQuantiles'])
-        drivers.append(data['file'])
+        drivers.append(data['name'])
+        throughput = (sum(data['publishRate']) / len(data['publishRate']) * 1024) / (1024.0 * 1024.0)
         pub_rate_avg["Throughput (MB/s): higher is better"].append({
-            'value':
-            (sum(data['publishRate']) / len(data['publishRate']) * 1024) /
-            (1024.0 * 1024.0),
-            'color':
-            graph_colors[count % len(graph_colors)]
+            'value': throughput,
+            'color': graph_colors[count % len(graph_colors)]
         })
         count = count + 1
+        for metric_key in metrics_of_interest:
+            metrics[metric_key] = data[metric_key]
+        metrics["throughputMBps"] = throughput
+
+    # OMB tooling depends on the output of this script, do not print extra stuff to stdout unless
+    # you fully understand what you are doing.
+    print(json.dumps(curated_metrics, indent=2))
 
     # Parse plot options
     opts = []
@@ -277,7 +285,7 @@ def generate_charts(files):
             else:
                 opts.append({})
 
-    prefix = f'{rate}k-rate-{partitions}-partitions-{message_size}kb-{producers}-producers'
+    prefix = data['name']
 
     # Generate publish rate bar-chart
     svg = prefix + '-publish-rate-bar'
@@ -372,19 +380,14 @@ if __name__ == "__main__":
     if args.output != '':
         output = path.join(args.output, '')
 
-    # Get list of directories
-    for (dirpath, dirnames, filenames) in walk(args.results_dir):
-        for file in filenames:
-            m = re.search(
-                r'(^\d+-topic-\d+-partitions-\d+kb-\d+-producers-\d+k-rate-).*',
-                file)
-            if m:
-                prefix = m.group(1)
-                file_path = path.join(dirpath, file)
-                if prefix in prefixes:
-                    prefixes[prefix].append(file_path)
-                else:
-                    prefixes[prefix] = [file_path]
+
+    # Recursively fetch all json files in the results dir.
+    for file in glob.iglob(path.join(args.results_dir, "**/*.json"), recursive=True):
+        prefix = path.dirname(file)
+        if prefix in prefixes:
+            prefixes[prefix].append(file)
+        else:
+            prefixes[prefix] = [file]
 
     for prefix in prefixes:
         generate_charts(prefixes[prefix])
