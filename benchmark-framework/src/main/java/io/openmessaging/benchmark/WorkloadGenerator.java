@@ -129,7 +129,7 @@ public class WorkloadGenerator implements AutoCloseable {
         }
 
 
-        log.info("----- Starting warm-up traffic ------");
+        log.info("----- Starting warm-up traffic ({}m) ------", workload.warmupDurationMinutes);
 
         worker.startLoad(producerWorkAssignment);
 
