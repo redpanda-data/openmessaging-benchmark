@@ -29,6 +29,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -90,7 +91,11 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
                 // Delete all existing topics
                 DeleteTopicsResult deletes = admin.deleteTopics(topics);
                 deletes.all().get();
-            } catch (InterruptedException | ExecutionException e) {
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof UnknownTopicOrPartitionException) {
+                    log.warn("Topic(s) appeared to be deleted already (race condition)");
+                }
+            } catch (InterruptedException e) {
                 e.printStackTrace();
                 throw new IOException(e);
             }
