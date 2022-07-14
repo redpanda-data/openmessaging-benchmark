@@ -17,16 +17,17 @@
 # under the License.
 #
 
-name: max-rate-30-topics-1-partition-1kb
+name: max-rate-1-topic-50-partitions-50p-50c-1kb
 
-topics: 30
-partitionsPerTopic: 1
+topics: 1
+partitionsPerTopic: 50
 messageSize: 1024
 payloadFile: "payload/payload-1Kb.data"
 subscriptionsPerTopic: 1
-consumerPerSubscription: 1
-producersPerTopic: 1
+consumerPerSubscription: 50
+producersPerTopic: 50
 
+# Discover max-sustainable rate
 producerRate: 10000000
 
 consumerBacklogSizeGB: 0
