@@ -46,6 +46,9 @@ public class Benchmark {
 
     static class Arguments {
 
+        @Parameter(names = {"-c", "--csv"}, description = "Print results from this directory to a csv file")
+        String resultsDir;
+
         @Parameter(names = { "-h", "--help" }, description = "Help message", help = true)
         boolean help;
 
@@ -84,6 +87,12 @@ public class Benchmark {
         if (arguments.help) {
             jc.usage();
             System.exit(-1);
+        }
+
+        if(arguments.resultsDir != null) {
+            ResultsToCsv r = new ResultsToCsv();
+            r.writeAllResultFiles(arguments.resultsDir);
+            System.exit(0);
         }
 
         if (arguments.workers != null && arguments.workersFile != null) {
