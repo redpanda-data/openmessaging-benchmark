@@ -20,12 +20,8 @@
 
 import glob
 import json
-import sys
-import statistics
 import math
-import numpy as np
 import argparse
-import re
 import pygal
 from pygal.style import Style
 from itertools import chain
@@ -33,9 +29,9 @@ from os import path
 from jinja2 import Template
 from collections import defaultdict
 
-graph_colors = ['#202020', # dark gray 
-                '#828282', # light gray
+graph_colors = ['#202020', # dark gray
                 '#FF0000', # redpanda red1
+                '#828282',  # light gray
                 '#D85556', # redpanda red2
                 '#0000ff', # blue 
                 '#ff00ff', 
@@ -202,6 +198,7 @@ def generate_charts(files):
     benchmark_names = set()
     for file in sorted(files):
         data = json.load(open(file))
+        data['workload'] = data['workload'].replace('/', '-')
         begin_time = data['beginTime'] if 'beginTime' in data.keys() else ""
         rp_version = data['version'] if 'version' in data.keys() and data['version'] else "unknown_version"
         unique_name = "{ver}-{ts}-{driver}-{workload}".format(ver=rp_version, ts=begin_time, driver=data['driver'], workload=data['workload'])
