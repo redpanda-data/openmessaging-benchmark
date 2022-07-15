@@ -26,6 +26,9 @@ import java.util.TreeMap;
 public class TestResult {
     public String workload;
     public String driver;
+    public String version;
+    public String beginTime;
+    public String endTime;
     public long messageSize;
     public int topics;
     public int partitions;

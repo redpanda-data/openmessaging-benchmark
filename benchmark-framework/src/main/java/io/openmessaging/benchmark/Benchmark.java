@@ -66,6 +66,9 @@ public class Benchmark {
 
         @Parameter(names = { "-o", "--output" }, description = "Output", required = false)
         public String output;
+
+	@Parameter(names = { "-v", "--service-version" }, description = "Optional version of the service being benchmarked, embedded in the final result", required = false)
+	public String serviceVersion;
     }
 
     public static void main(String[] args) throws Exception {
@@ -137,6 +140,7 @@ public class Benchmark {
 
             arguments.drivers.forEach(driverConfig -> {
                 try {
+		    String beginTime = dateFormat.format(new Date());
                     File driverConfigFile = new File(driverConfig);
                     DriverConfiguration driverConfiguration = mapper.readValue(driverConfigFile,
                             DriverConfiguration.class);
@@ -151,6 +155,9 @@ public class Benchmark {
                     WorkloadGenerator generator = new WorkloadGenerator(driverConfiguration.name, workload, worker);
 
                     TestResult result = generator.run();
+		    result.beginTime = beginTime;
+		    result.endTime = dateFormat.format(new Date());
+		    result.version = arguments.serviceVersion;
 
                     String fileName;
                     if (arguments.output != null  && arguments.output.length() > 0) {
