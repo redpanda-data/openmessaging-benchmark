@@ -53,6 +53,7 @@ fill = False
 output = ''
 file_list = defaultdict(list)
 charts = defaultdict(list)
+coalesce = False
 
 
 def _clean_xy_values(values):
@@ -197,7 +198,11 @@ def generate_charts(files):
         data = json.load(open(file))
         data['workload'] = data['workload'].replace('/', '-')
         name = "{driver}-{workload}".format(driver=data['driver'], workload=data['workload'])
-        workload = data['workload']
+
+        if coalesce:
+            workload = 'All Workloads'
+        else:
+            workload = data['workload']
 
         benchmark_names.add(name)
         data['name'] = name
@@ -351,12 +356,19 @@ if __name__ == "__main__":
                         required=False,
                         type=str,
                         help='Location where all output will be stored')
+    parser.add_argument('--coalesce-workloads',
+                        dest='coalesce',
+                        action='store_true',
+                        help='Specify put all workloads on a single set of charts')
+
     args = parser.parse_args()
 
     prefixes = {}
 
     if args.output != '':
         output = path.join(args.output, '')
+
+    coalesce = args.coalesce
 
     # Recursively fetch all json files in the results dir.
     filelist = glob.iglob(path.join(args.results_dir, "**/*.json"), recursive=True)
