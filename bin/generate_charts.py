@@ -22,6 +22,8 @@ import glob
 import json
 import math
 import argparse
+import sys
+
 import pygal
 from pygal.style import Style
 from itertools import chain
@@ -203,8 +205,8 @@ def generate_charts(files):
         # name used as chart label.
         name = "{ver}-{driver}-{workload}".format(ver=rp_version, driver=data['driver'], workload=data['workload'])
         if unique_name in benchmark_names:
-            print(f"Duplicate benchmark found: {name} in file {file}")
-            exit(-1)
+            print(f"WARN: Duplicate benchmark found: {name} in file {file}", file=sys.stderr)
+
         benchmark_names.add(unique_name)
 
         if coalesce:
