@@ -29,14 +29,14 @@ from os import path
 from jinja2 import Template
 from collections import defaultdict
 
-graph_colors = ['#202020', # dark gray 
-                '#FF0000', # redpanda red1
-                '#828282',  # light gray
-                '#D85556', # redpanda red2
-                '#0000ff', # blue 
-                '#ff00ff', 
-                '#00ffff', 
-                '#ffd700']
+graph_colors = ['#545454', # dark gray
+                '#e2401b', # redpanda red1
+                '#78909c',  # light gray
+                '#ED7F66', # redpanda red2
+                '#0097A7', # blue
+                '#ffab40', # yellow
+                '#00ffff', # cyan
+                '#ff00ff'] # magenta
 chartStyle = Style(
     background='transparent',
     plot_background='transparent',
