@@ -240,9 +240,9 @@
 										<include>**/*.xml</include>
 									</includes>
 									<excludes>
-										<exlude>
+										<exclude>
 											org/HdrHistogram/DoubleHistogram*.class
-										</exlude>
+										</exclude>
 									</excludes>
 								</filter>
 							</filters>
