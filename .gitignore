@@ -14,6 +14,7 @@ core/*.json
 **/terraform.tfstate.backup
 **/*.lock.info
 .DS_Store
+**/dependency-reduced-pom.xml
 
 # IntelliJ artifacts
 .idea/
