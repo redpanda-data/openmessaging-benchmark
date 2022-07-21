@@ -22,6 +22,8 @@ import glob
 import json
 import math
 import argparse
+import sys
+
 import pygal
 from pygal.style import Style
 from itertools import chain
@@ -197,7 +199,15 @@ def generate_charts(files):
     for file in sorted(files):
         data = json.load(open(file))
         data['workload'] = data['workload'].replace('/', '-')
-        name = "{driver}-{workload}".format(driver=data['driver'], workload=data['workload'])
+        begin_time = data['beginTime'] if 'beginTime' in data.keys() else ""
+        rp_version = data['version'] if 'version' in data.keys() and data['version'] else "unknown_version"
+        unique_name = "{ver}-{ts}-{driver}-{workload}".format(ver=rp_version, ts=begin_time, driver=data['driver'], workload=data['workload'])
+        # name used as chart label.
+        name = "{ver}-{driver}-{workload}".format(ver=rp_version, driver=data['driver'], workload=data['workload'])
+        if unique_name in benchmark_names:
+            print(f"WARN: Duplicate benchmark found: {name} in file {file}", file=sys.stderr)
+
+        benchmark_names.add(unique_name)
 
         if coalesce:
             workload = 'All Workloads'
@@ -232,6 +242,9 @@ def generate_charts(files):
         count = 0
         curated_metrics = {}  # to dump to stdout
         metrics_of_interest = [
+            "version",
+            "beginTime",
+            "endTime",
             "aggregatedPublishLatencyAvg",
             "aggregatedPublishLatency50pct",
             "aggregatedPublishLatency99pct",
@@ -269,7 +282,8 @@ def generate_charts(files):
             })
             count = count + 1
             for metric_key in metrics_of_interest:
-                metrics[metric_key] = data[metric_key]
+                if metric_key in data.keys():
+                    metrics[metric_key] = data[metric_key]
             metrics["throughputMBps"] = throughput
 
         # OMB tooling depends on the output of this script, do not print extra stuff to stdout unless
