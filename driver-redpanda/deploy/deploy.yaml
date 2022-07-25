@@ -362,3 +362,21 @@
     - dashboard_id: 1860
       revision_id: 21
       datasource: prometheus
+
+hosts: redpanda
+  tasks:
+    - name: Include TLS tasks
+      block:
+        - name: Create Certificate Authority
+          ansible.builtin.import_playbook: tls/create-ca.yml
+
+        - name: Generate CSRs
+            ansible.builtin.import_playbook: tls/generate-csrs.yml
+
+        - name: Generate CSRs
+            ansible.builtin.import_playbook: tls/issue-certs.yml
+
+        - name: Install certs
+            ansible.builtin.import_playbook: tls/install-certs.yml
+      when: tls_enabled| default(False)|bool == True
+
