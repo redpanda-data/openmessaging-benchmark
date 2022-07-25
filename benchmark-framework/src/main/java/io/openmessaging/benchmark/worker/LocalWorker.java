@@ -104,6 +104,10 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final Recorder cumulativePublishLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
     private final OpStatsLogger publishLatencyStats;
 
+    private final Recorder scheduleLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final Recorder cumulativeScheduleLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final OpStatsLogger scheduleLatencyStats;
+
     private final Recorder publishDelayLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
     private final Recorder cumulativePublishDelayLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
     private final OpStatsLogger publishDelayLatencyStats;
@@ -130,6 +134,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         this.bytesSentCounter = producerStatsLogger.getCounter("bytes_sent");
         this.publishDelayLatencyStats = producerStatsLogger.getOpStatsLogger("producer_delay_latency");
         this.publishLatencyStats = producerStatsLogger.getOpStatsLogger("produce_latency");
+        this.scheduleLatencyStats = producerStatsLogger.getOpStatsLogger("schedule_latency");
 
         StatsLogger consumerStatsLogger = statsLogger.scope("consumer");
         this.messagesReceivedCounter = consumerStatsLogger.getCounter("messages_recv");
@@ -253,7 +258,12 @@ public class LocalWorker implements Worker, ConsumerCallback {
                         final long intendedSendTime = rateLimiter.acquire();
                         uninterruptibleSleepNs(intendedSendTime);
                         final long sendTime = System.nanoTime();
-                        producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData).thenRun(() -> {
+                        CompletableFuture<Void> f = producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData);
+                        long scheduleMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
+                        scheduleLatencyRecorder.recordValue(scheduleMicros);
+                        cumulativeScheduleLatencyRecorder.recordValue(scheduleMicros);
+                        scheduleLatencyStats.registerSuccessfulEvent(scheduleMicros, TimeUnit.MICROSECONDS);
+                        f.thenRun(() -> {
                             messagesSent.increment();
                             totalMessagesSent.increment();
                             messagesSentCounter.inc();
@@ -309,6 +319,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         stats.totalMessagesReceived = totalMessagesReceived.sum();
 
         stats.publishLatency = publishLatencyRecorder.getIntervalHistogram();
+        stats.scheduleLatency = scheduleLatencyRecorder.getIntervalHistogram();
         stats.publishDelayLatency = publishDelayLatencyRecorder.getIntervalHistogram();
         stats.endToEndLatency = endToEndLatencyRecorder.getIntervalHistogram();
         return stats;
@@ -318,6 +329,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
     public CumulativeLatencies getCumulativeLatencies() {
         CumulativeLatencies latencies = new CumulativeLatencies();
         latencies.publishLatency = cumulativePublishLatencyRecorder.getIntervalHistogram();
+        latencies.scheduleLatency = cumulativeScheduleLatencyRecorder.getIntervalHistogram();
         latencies.publishDelayLatency = cumulativePublishDelayLatencyRecorder.getIntervalHistogram();
         latencies.endToEndLatency = endToEndCumulativeLatencyRecorder.getIntervalHistogram();
         return latencies;
@@ -379,6 +391,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
     @Override
     public void resetStats() throws IOException {
         publishLatencyRecorder.reset();
+        scheduleLatencyRecorder.reset();
+        cumulativeScheduleLatencyRecorder.reset();
         cumulativePublishLatencyRecorder.reset();
         publishDelayLatencyRecorder.reset();
         cumulativePublishDelayLatencyRecorder.reset();
@@ -393,6 +407,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
         producersArePaused = false;
 
         publishLatencyRecorder.reset();
+        scheduleLatencyRecorder.reset();
+        cumulativeScheduleLatencyRecorder.reset();
         cumulativePublishLatencyRecorder.reset();
         publishDelayLatencyRecorder.reset();
         cumulativePublishDelayLatencyRecorder.reset();

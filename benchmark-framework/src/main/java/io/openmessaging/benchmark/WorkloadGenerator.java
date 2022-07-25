@@ -452,6 +452,12 @@ public class WorkloadGenerator implements AutoCloseable {
             result.publishLatency9999pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99.99)));
             result.publishLatencyMax.add(microsToMillis(stats.publishLatency.getMaxValue()));
 
+            result.scheduleLatencyMin.add(microsToMillis(stats.scheduleLatency.getMinValue()));
+            result.scheduleLatency50pct.add(microsToMillis(stats.scheduleLatency.getValueAtPercentile(50)));
+            result.scheduleLatency75pct.add(microsToMillis(stats.scheduleLatency.getValueAtPercentile(75)));
+            result.scheduleLatency99pct.add(microsToMillis(stats.scheduleLatency.getValueAtPercentile(99)));
+            result.scheduleLatencyMax.add(microsToMillis(stats.scheduleLatency.getMaxValue()));
+
             result.publishDelayLatencyAvg.add(stats.publishDelayLatency.getMean());
             result.publishDelayLatency50pct.add(stats.publishDelayLatency.getValueAtPercentile(50));
             result.publishDelayLatency75pct.add(stats.publishDelayLatency.getValueAtPercentile(75));
@@ -460,7 +466,6 @@ public class WorkloadGenerator implements AutoCloseable {
             result.publishDelayLatency999pct.add(stats.publishDelayLatency.getValueAtPercentile(99.9));
             result.publishDelayLatency9999pct.add(stats.publishDelayLatency.getValueAtPercentile(99.99));
             result.publishDelayLatencyMax.add(stats.publishDelayLatency.getMaxValue());
-
 
             result.endToEndLatencyAvg.add(microsToMillis(stats.endToEndLatency.getMean()));
             result.endToEndLatencyMin.add(microsToMillis(stats.endToEndLatency.getMinValue()));
@@ -537,6 +542,11 @@ public class WorkloadGenerator implements AutoCloseable {
 
                 agg.publishLatency.percentiles(100).forEach(value -> {
                     result.aggregatedPublishLatencyQuantiles.put(value.getPercentile(),
+                            microsToMillis(value.getValueIteratedTo()));
+                });
+
+                agg.scheduleLatency.percentiles(100).forEach(value -> {
+                    result.aggregatedScheduleLatencyQuantiles.put(value.getPercentile(),
                             microsToMillis(value.getValueIteratedTo()));
                 });
 

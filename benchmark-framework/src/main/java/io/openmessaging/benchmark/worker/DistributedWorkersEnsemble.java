@@ -234,6 +234,9 @@ public class DistributedWorkersEnsemble implements Worker {
             try {
                 stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
+                
+                stats.scheduleLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                    ByteBuffer.wrap(is.scheduleLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
 
                 stats.publishDelayLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.publishDelayLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
@@ -259,6 +262,14 @@ public class DistributedWorkersEnsemble implements Worker {
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
             } catch (Exception e) {
                 log.error("Failed to decode publish latency");
+                throw new RuntimeException(e);
+            }
+
+            try {
+                stats.scheduleLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                    ByteBuffer.wrap(is.scheduleLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
+            } catch (Exception e) {
+                log.error("Failed to decode schedule latency");
                 throw new RuntimeException(e);
             }
 

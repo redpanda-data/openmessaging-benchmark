@@ -45,6 +45,13 @@ public class TestResult {
     public List<Double> consumeRate = new ArrayList<>();
     public List<Long> backlog = new ArrayList<>();
 
+    public List<Double> scheduleLatencyMin = new ArrayList<>();
+    public List<Double> scheduleLatency50pct = new ArrayList<>();
+    public List<Double> scheduleLatency75pct = new ArrayList<>();
+    public List<Double> scheduleLatency99pct = new ArrayList<>();
+    public List<Double> scheduleLatencyMax = new ArrayList<>();
+    public Map<Double, Double> aggregatedScheduleLatencyQuantiles = new TreeMap<>();
+
     public List<Double> publishLatencyMin = new ArrayList<>();
     public List<Double> publishLatencyAvg = new ArrayList<>();
     public List<Double> publishLatency50pct = new ArrayList<>();
