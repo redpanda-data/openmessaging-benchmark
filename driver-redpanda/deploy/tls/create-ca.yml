@@ -35,3 +35,4 @@
       rm -f index.txt serial.txt
       touch index.txt
       echo '01' > serial.txt
+

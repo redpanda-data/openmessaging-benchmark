@@ -195,6 +195,16 @@
         --ips {{ seed_private_ip }}
       {% endif %}
 
+      rpk redpanda config set 'rpk.admin_api' "
+            brokers:
+              - {{ hostvars[inventory_hostname].private_ip }}:9644
+        " --format yaml
+
+      rpk redpanda config set 'rpk.kafka_api' "
+            brokers:
+              - {{ hostvars[inventory_hostname].private_ip }}:9092
+        " --format yaml
+
   handlers:
   - name: restart redpanda-tuner
     systemd:
@@ -203,6 +213,10 @@
   - name: restart redpanda
     systemd:
       name: redpanda
+      state: restarted
+  - name: restart prometheus
+    systemd:
+      name: prometheus
       state: restarted
 
 - name: Chrony setup
@@ -363,20 +377,54 @@
       revision_id: 21
       datasource: prometheus
 
-hosts: redpanda
+- name: Create CA
+  ansible.builtin.import_playbook: tls/create-ca.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Generate CSRs
+  ansible.builtin.import_playbook: tls/generate-csrs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Generate CSRs
+  ansible.builtin.import_playbook: tls/issue-certs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Install certs
+  ansible.builtin.import_playbook: tls/install-certs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- hosts: redpanda
   tasks:
-    - name: Include TLS tasks
-      block:
-        - name: Create Certificate Authority
-          ansible.builtin.import_playbook: tls/create-ca.yml
+  - name: Configure SASL
+    shell:
+      cmd: |
+        rpk cluster config set superusers ['admin']
+        rpk acl user create admin -p admin
+        rpk acl user create sa_test -p sa_test
+        rpk acl create --allow-principal User:sa_test --operation all --topic '*' --group '*' --user admin --password admin
+        rpk acl create --allow-principal User:sa_test --operation all --cluster --user admin --password admin
+        rpk cluster config set enable_sasl true 
+    run_once: True 
+    when: sasl_enabled| default(False)|bool == True
 
-        - name: Generate CSRs
-            ansible.builtin.import_playbook: tls/generate-csrs.yml
-
-        - name: Generate CSRs
-            ansible.builtin.import_playbook: tls/issue-certs.yml
-
-        - name: Install certs
-            ansible.builtin.import_playbook: tls/install-certs.yml
-      when: tls_enabled| default(False)|bool == True
-
+  - name: Configure SASL for rpk
+    shell:
+      cmd: |
+        rpk redpanda config set 'rpk.admin_api' "
+            sasl:
+              user: admin
+              password: admin
+              type: SCRAM-SHA-256
+        " --format yaml
+        rpk redpanda config set 'rpk.kafka_api' "
+            sasl:
+              user: admin
+              password: admin
+              type: SCRAM-SHA-256
+        " --format yaml
+    when: sasl_enabled| default(False)|bool == True
+  tags: sasl

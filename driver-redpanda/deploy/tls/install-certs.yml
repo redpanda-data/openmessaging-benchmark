@@ -20,11 +20,6 @@
       cmd: |
         rpk redpanda config set redpanda "
 
-          advertised_kafka_api:
-          - name: default
-            address: {{ inventory_hostname }}
-            port: 9092
-        
           admin_api_tls:
           - cert_file: /etc/redpanda/certs/node.crt
             key_file: /etc/redpanda/certs/node.key
@@ -47,6 +42,11 @@
             truststore_file: /etc/redpanda/certs/truststore.pem
 
         " --format yaml
+        rpk redpanda config set 'rpk.admin_api' "
+            tls:
+              truststore_file: /etc/redpanda/certs/truststore.pem
+        " --format yaml
+
         rpk redpanda config set 'rpk.kafka_api' "
             tls:
               truststore_file: /etc/redpanda/certs/truststore.pem
@@ -56,4 +56,29 @@
   - name: Restart redpanda
     systemd:
       name: redpanda
+      state: restarted
+
+
+- hosts: prometheus
+  tasks:
+  - name: Copy CA Certs
+    copy:
+      src: ca/ca.crt
+      dest: /etc/prometheus/truststore.pem
+      owner: prometheus
+      group: prometheus
+
+  - name: Configure scrape
+    blockinfile:
+      path: /etc/prometheus/prometheus.yml
+      state: present
+      insertafter: 'job_name: redpanda'
+      block: |4
+              scheme: https
+              tls_config:
+                ca_file: /etc/prometheus/truststore.pem
+
+  - name: Restart Prometheus
+    systemd:
+      name: prometheus
       state: restarted
