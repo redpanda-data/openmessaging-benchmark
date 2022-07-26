@@ -1,0 +1,51 @@
+- hosts: kafka
+  tasks:
+
+  - name: Test hosts list
+    debug:
+      msg:
+      - "ipv4            : {{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+      - "private ip      : {{ hostvars[inventory_hostname]['private_ip'] }}"
+      - "ansible_hostname: {{ hostvars[inventory_hostname]['ansible_hostname'] }}"
+      - "ansible_fqdn    : {{ hostvars[inventory_hostname]['ansible_fqdn'] }}"
+
+  - name: ensure /etc/kafka/certs exists
+    ansible.builtin.file:
+      path: /etc/kafka/certs
+      state: directory
+      owner: kafka
+      group: kafka
+      mode: 0755
+
+  - name: Copy node template
+    ansible.builtin.template:
+      src: node.conf.tpl
+      dest: /etc/kafka/certs/node.conf
+      owner: kafka
+      group: kafka
+
+  - name: Generate an OpenSSH keypair on {{ansible_hostname}}
+    ansible.builtin.command:
+      creates: /etc/kafka/certs/node.key
+      chdir: /etc/kafka/certs
+      cmd: openssl genrsa -out node.key 2048
+
+  - name: Generate a Certificate Signing Request on {{ansible_hostname}}
+    ansible.builtin.command:
+      creates: /etc/kafka/certs/node.csr
+      chdir: /etc/kafka/certs
+      cmd: openssl req -new -config node.conf -key node.key -out node.csr -batch
+
+  - name: CHOWN to kafka
+    ansible.builtin.file:
+      path: /etc/kafka/certs
+      state: directory
+      owner: kafka
+      group: kafka
+      recurse: yes
+
+  - name: Fetch CSRs
+    fetch:
+      src: /etc/kafka/certs/node.csr
+      dest: certs/{{ansible_hostname}}/node.csr
+      flat: yes

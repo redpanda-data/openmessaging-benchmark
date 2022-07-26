@@ -1,0 +1,44 @@
+- hosts: kafka
+  tasks:
+  - name: Copy CA Certs
+    copy:
+      src: ca/ca.crt
+      dest: /etc/kafka/certs/truststore.pem
+      owner: kafka
+      group: kafka
+
+  - name: Copy Node Certs
+    copy:
+      src: certs/{{ansible_hostname}}/node.crt
+      dest: /etc/kafka/certs/node.crt
+      owner: kafka
+      group: kafka
+
+  - name: Configure via RPK
+    shell:
+      cmd:
+
+  - name: Restart kafka
+    systemd:
+      name: kafka
+      state: restarted
+
+- hosts: client
+  tasks:
+    - name: Copy CA Certs
+      copy:
+        src: ca/ca.crt
+        dest: /etc/ssl/certs/kafka.pem
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Install into Java truststore
+      java_cert:
+        executable: "/usr/bin/keytool"
+        cert_alias: "kafka"
+        cert_path: "/etc/ssl/certs/kafka.pem"
+        keystore_path: "/etc/ssl/certs/java/cacerts"
+        keystore_pass: "changeit"
+        keystore_type: JKS
+        state: present

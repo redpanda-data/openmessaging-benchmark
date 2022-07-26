@@ -102,6 +102,26 @@
         echo 'LANG=en_US.utf-8
               LC_ALL=en_US.utf-8' > /etc/environment
 
+- name: Create CA
+  ansible.builtin.import_playbook: tls/create-ca.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Generate CSRs
+  ansible.builtin.import_playbook: tls/generate-csrs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Generate CSRs
+  ansible.builtin.import_playbook: tls/issue-certs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Install certs
+  ansible.builtin.import_playbook: tls/install-certs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
 - name: Setup ZooKeeper
   hosts: zookeeper
   connection: ssh
@@ -125,6 +145,20 @@
         state: restarted
         daemon_reload: yes
         name: "zookeeper"
+
+- name: Setup SASL Users
+  hosts: kafka
+  tasks:
+    - name: Create superuser
+      command:
+        cmd: "bin/kafka-configs.sh --zookeeper {{ zookeeperServers }} -alter --add-config 'SCRAM-SHA-256=[iterations=8192,password=admin-secret],SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name admin"
+
+    - name: Create workload user
+      command:
+        cmd: "bin/kafka-configs.sh --zookeeper {{ zookeeperServers }} -alter --add-config 'SCRAM-SHA-256=[iterations=8192,password=admin-secret],SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name sa_test"
+
+  tags: sasl
+  when: sasl_enabled| default(False)|bool == True
 
 - name: Setup Kafka
   hosts: kafka
@@ -194,6 +228,33 @@
          regexp: '^  bootstrap.servers='
          line: '  bootstrap.servers={{ boostrapServers }}'
       with_items: '{{ kafka_drivers_list.stdout_lines }}'
+
+    - name: Configure SASL Mechanism
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  sasl.mechanism="
+        insertafter: "^  bootstrap.servers="
+        line: "  sasl.mechanism=SCRAM-SHA-256"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: sasl_enabled| default(False)|bool == True
+
+    - name: Configure Security Protocol
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  security.protocol="
+        insertafter: "^  bootstrap.servers="
+        line: "  security.protocol={{ 'SASL_' if sasl_enabled | default(False) }}{{ 'SSL' if tls_enabled | default(False) else 'PLAINTEXT' }}"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
+
+    - name: Configure JAAS
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  sasl.jaas.config="
+        insertafter: "^  bootstrap.servers="
+        line: "  sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='sa_test' password='admin-secret';"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: tls_enabled| default(False)|bool == True
 
     - name: Configure Kafka Connection Factory
       ansible.builtin.replace:
