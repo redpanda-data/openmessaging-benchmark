@@ -9,12 +9,6 @@
       - "ansible_hostname: {{ hostvars[inventory_hostname]['ansible_hostname'] }}"
       - "ansible_fqdn    : {{ hostvars[inventory_hostname]['ansible_fqdn'] }}"
 
-  # for debug. get rid of this later
-  - name: rm!
-    file:
-      path: /etc/redpanda/certs
-      state: absent
-
   - name: ensure /etc/redpanda/certs exists
     ansible.builtin.file:
       path: /etc/redpanda/certs

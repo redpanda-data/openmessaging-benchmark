@@ -29,10 +29,14 @@
       cmd: openssl req -new -x509 -config ca.conf -key ca.key -out ca.crt -days 365 -batch
       creates: "{{ root_ca_dir }}/ca.crt"
 
-  - name: Initialize CA data files
-    shell: |
-      cd {{ root_ca_dir }}
-      rm -f index.txt serial.txt
-      touch index.txt
-      echo '01' > serial.txt
+  - name: Create index file
+    file:
+      state: touch
+      path: "{{ root_ca_dir }}/index.txt"
+      mode: 0700
+    changed_when: False
 
+  - name: Write serial
+    shell:
+      cmd: echo 1000 > {{ root_ca_dir }}/serial.txt
+      creates: "{{ root_ca_dir }}/serial.txt"
