@@ -259,31 +259,31 @@
       with_items: "{{ drivers_list.stdout_lines }}"
 
     - name: Configure SASL Mechanism
-        lineinfile:
-          dest: "{{ item }}"
-          regexp: "^  sasl.mechanism="
-          insertafter: "^  bootstrap.servers="
-          line: "  sasl.mechanism=SCRAM-SHA-256"
-        with_items: "{{ drivers_list.stdout_lines }}"
-        when: sasl_enabled| default(False)|bool == True
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  sasl.mechanism="
+        insertafter: "^  bootstrap.servers="
+        line: "  sasl.mechanism=SCRAM-SHA-256"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: sasl_enabled| default(False)|bool == True
 
     - name: Configure Security Protocol
-        lineinfile:
-          dest: "{{ item }}"
-          regexp: "^  security.protocol="
-          insertafter: "^  bootstrap.servers="
-          line: "  security.protocol={{ 'SASL_' if sasl_enabled | default(False) }}{{ 'SSL' if tls_enabled | default(False) else 'PLAINTEXT' }}"
-        with_items: "{{ drivers_list.stdout_lines }}"
-        when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  security.protocol="
+        insertafter: "^  bootstrap.servers="
+        line: "  security.protocol={{ 'SASL_' if sasl_enabled | default(False) }}{{ 'SSL' if tls_enabled | default(False) else 'PLAINTEXT' }}"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
 
     - name: Configure JAAS
-        lineinfile:
-          dest: "{{ item }}"
-          regexp: "^  sasl.jaas.config="
-          insertafter: "^  bootstrap.servers="
-          line: "  sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='sa_test' password='sa_test';"
-        with_items: "{{ drivers_list.stdout_lines }}"
-        when: tls_enabled| default(False)|bool == True
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  sasl.jaas.config="
+        insertafter: "^  bootstrap.servers="
+        line: "  sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='sa_test' password='sa_test';"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: tls_enabled| default(False)|bool == True
 
     - name: Configure memory
       lineinfile:
@@ -430,12 +430,12 @@
   - name: Configure SASL
     shell:
       cmd: |
-        rpk cluster config set superusers ['admin']
-        rpk acl user create admin -p admin
-        rpk acl user create sa_test -p sa_test
+        rpk cluster config set superusers ['admin'] --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
+        rpk acl user create admin -p admin --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
+        rpk acl user create sa_test -p sa_test --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
         rpk acl create --allow-principal User:sa_test --operation all --topic '*' --group '*' --user admin --password admin
         rpk acl create --allow-principal User:sa_test --operation all --cluster --user admin --password admin
-        rpk cluster config set enable_sasl true 
+        rpk cluster config set enable_sasl true --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
     run_once: True 
     when: sasl_enabled| default(False)|bool == True
 
