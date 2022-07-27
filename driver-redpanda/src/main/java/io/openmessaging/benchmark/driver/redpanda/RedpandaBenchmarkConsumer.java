@@ -67,6 +67,7 @@ public class RedpandaBenchmarkConsumer implements BenchmarkConsumer {
                         consumer.commitAsync(offsetMap, null);
                     }
                 } catch (Exception e) {
+                    callback.error();
                     log.error("exception occur while consuming message", e);
                 }
             }

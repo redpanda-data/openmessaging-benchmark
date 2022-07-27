@@ -31,4 +31,6 @@ public interface ConsumerCallback {
      *            the publish timestamp in milliseconds
      */
     void messageReceived(byte[] payload, long publishTimestamp);
+
+    void error();
 }

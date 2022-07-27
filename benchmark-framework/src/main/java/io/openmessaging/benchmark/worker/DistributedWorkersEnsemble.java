@@ -222,12 +222,14 @@ public class DistributedWorkersEnsemble implements Worker {
         List<PeriodStats> individualStats = get(workers, "/period-stats", PeriodStats.class);
         PeriodStats stats = new PeriodStats();
         individualStats.forEach(is -> {
+            stats.errors += is.errors;
             stats.messagesSent += is.messagesSent;
             stats.bytesSent += is.bytesSent;
             stats.messagesReceived += is.messagesReceived;
             stats.bytesReceived += is.bytesReceived;
             stats.totalMessagesSent += is.totalMessagesSent;
             stats.totalMessagesReceived += is.totalMessagesReceived;
+            stats.totalErrors += is.totalErrors;
 
             try {
                 stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
