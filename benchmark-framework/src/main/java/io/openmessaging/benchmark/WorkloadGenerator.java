@@ -457,6 +457,7 @@ public class WorkloadGenerator implements AutoCloseable {
             result.consumeRate.add(consumeRate);
             result.backlog.add(currentBacklog);
             result.publishLatencyAvg.add(microsToMillis(stats.publishLatency.getMean()));
+            result.publishLatencyMin.add(microsToMillis(stats.publishLatency.getMinValue()));
             result.publishLatency50pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(50)));
             result.publishLatency75pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(75)));
             result.publishLatency95pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(95)));
@@ -476,6 +477,7 @@ public class WorkloadGenerator implements AutoCloseable {
 
 
             result.endToEndLatencyAvg.add(microsToMillis(stats.endToEndLatency.getMean()));
+            result.endToEndLatencyMin.add(microsToMillis(stats.endToEndLatency.getMinValue()));
             result.endToEndLatency50pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50)));
             result.endToEndLatency75pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(75)));
             result.endToEndLatency95pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(95)));
