@@ -29,6 +29,7 @@ public class TestResult {
     public int partitions;
     public int producersPerTopic;
     public int consumersPerTopic;
+    public int sampleRateMillis;
 
     public List<Long> sent = new ArrayList<>();
     public List<Long> consumed = new ArrayList<>();

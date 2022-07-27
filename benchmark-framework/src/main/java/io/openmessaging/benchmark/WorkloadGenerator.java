@@ -402,10 +402,11 @@ public class WorkloadGenerator implements AutoCloseable {
         result.messageSize = workload.messageSize;
         result.producersPerTopic = workload.producersPerTopic;
         result.consumersPerTopic = workload.consumerPerSubscription;
+        result.sampleRateMillis = workload.sampleRateMillis;
 
         while (true) {
             try {
-                Thread.sleep(10000);
+                Thread.sleep(workload.sampleRateMillis);
             } catch (InterruptedException e) {
                 break;
             }
