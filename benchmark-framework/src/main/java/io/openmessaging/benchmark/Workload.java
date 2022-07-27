@@ -54,6 +54,7 @@ public class Workload {
     public long consumerBacklogSizeGB = 0;
 
     public int warmupDurationMinutes = 30;
+    public int sampleRateMillis = 10000;
     public int testDurationMinutes;
 
     /**
