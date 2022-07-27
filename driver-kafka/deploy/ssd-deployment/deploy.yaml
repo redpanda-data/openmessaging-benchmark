@@ -79,14 +79,15 @@
   become: true
   tasks:
     - name: Install RPM packages
-      yum: pkg={{ item }} state=latest
-      with_items:
+      yum:
+        pkg:
           - wget
           - java-11-openjdk
           - sysstat
           - vim
           - chrony
-    - file: path=/opt/kafka state=absent
+        state: latest
+    - file: path=/opt/kafka state=directory
           #- debug:
           #msg: "zookeeper servers: {{ zookeeperServers }}\nboostrap servers: {{ bootstrapServers }}"
     - name: Download Kafka package
@@ -151,14 +152,17 @@
   tasks:
     - name: Create superuser
       command:
-        cmd: "bin/kafka-configs.sh --zookeeper {{ zookeeperServers }} -alter --add-config 'SCRAM-SHA-256=[iterations=8192,password=admin-secret],SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name admin"
+        cmd: "/opt/kafka/bin/kafka-configs.sh --zookeeper {{ zookeeperServers }} -alter --add-config 'SCRAM-SHA-256=[iterations=8192,password=admin-secret],SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name admin"
+      run_once: true
+      when: sasl_enabled| default(False)|bool == True
 
     - name: Create workload user
       command:
-        cmd: "bin/kafka-configs.sh --zookeeper {{ zookeeperServers }} -alter --add-config 'SCRAM-SHA-256=[iterations=8192,password=admin-secret],SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name sa_test"
+        cmd: "/opt/kafka/bin/kafka-configs.sh --zookeeper {{ zookeeperServers }} -alter --add-config 'SCRAM-SHA-256=[iterations=8192,password=admin-secret],SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name sa_test"
+      run_once: true
+      when: sasl_enabled| default(False)|bool == True
 
   tags: sasl
-  when: sasl_enabled| default(False)|bool == True
 
 - name: Setup Kafka
   hosts: kafka
@@ -184,38 +188,47 @@
   tasks:
     - name: Create client config file
       ansible.builtin.tempfile:
-          state: file
-          suffix: temp
-        register: tempfile_1
+        state: file
+        suffix: temp
+      register: tempfile_1
+      when: sasl_enabled| default(False)|bool == True
 
     - name: Populate client config file
-      copy:
-        dest: tempfile_1
-        content: |
-          bootstrap.servers={{ bootstrapServers }}
-          sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='admin' password='admin-secret';
-          security.protocol=SASL_{{ 'SSL' if tls_enabled | default(False) else 'PLAINTEXT' }}
-          sasl.mechanism=SCRAM-SHA-256
+      template:
+        src: "templates/client.properties"
+        dest: "{{ tempfile_1.path }}"
+      when: sasl_enabled| default(False)|bool == True
 
     - name: Create ACLs
       command:
-        cmd: "bin/kafka-acls.sh --bootstrap-server {{ bootstrapServers }} --command-config {{ tempfile_1 }} {{ item }}"
+        cmd: "/opt/kafka/bin/kafka-acls.sh --bootstrap-server {{ bootstrapServers }} --command-config {{ tempfile_1.path }} {{ item }}"
       loop:
         - "--add --allow-principal User:sa_test --operation create  --cluster"
         - "--add --allow-principal User:sa_test --operation read --operation write --operation create  --operation delete --operation describe --topic '*'"
         - "--add --allow-principal User:sa_test  --operation read --group '*'"
+      run_once: true
+      when: sasl_enabled| default(False)|bool == True
   tags: sasl
-  when: sasl_enabled| default(False)|bool == True
 
 - name: Chrony setup
   hosts: client
   connection: ssh
   become: true
   tasks:
+    - name: Set chrony path
+      when: ansible_os_family == 'RedHat'
+      set_fact:
+        chrony_path: /etc/chrony.conf
+
+    - name: Set chrony path
+      when: ansible_os_family == 'Debian'
+      set_fact:
+        chrony: /etc/chrony/chrony.conf
+
     - name: Set up chronyd
       template:
         src: "templates/chrony.conf"
-        dest: "/etc/chrony.conf"
+        dest: "{{ chrony_path }}"
     - systemd:
         state: restarted
         daemon_reload: yes
@@ -265,6 +278,14 @@
         line: "  sasl.mechanism=SCRAM-SHA-256"
       with_items: "{{ drivers_list.stdout_lines }}"
       when: sasl_enabled| default(False)|bool == True
+ 
+    - name: Configure Benchmark Name
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^name: Kafka"
+        line: "name: Kafka{{ '+SASL' if sasl_enabled | default(False) }}{{ '+TLS' if tls_enabled | default(False) }}"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
 
     - name: Configure Security Protocol
       lineinfile:

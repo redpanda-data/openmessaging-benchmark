@@ -13,16 +13,12 @@
     ansible.builtin.file:
       path: /etc/kafka/certs
       state: directory
-      owner: kafka
-      group: kafka
       mode: 0755
 
   - name: Copy node template
     ansible.builtin.template:
       src: node.conf.tpl
       dest: /etc/kafka/certs/node.conf
-      owner: kafka
-      group: kafka
 
   - name: Generate an OpenSSH keypair on {{ansible_hostname}}
     ansible.builtin.command:
@@ -35,14 +31,6 @@
       creates: /etc/kafka/certs/node.csr
       chdir: /etc/kafka/certs
       cmd: openssl req -new -config node.conf -key node.key -out node.csr -batch
-
-  - name: CHOWN to kafka
-    ansible.builtin.file:
-      path: /etc/kafka/certs
-      state: directory
-      owner: kafka
-      group: kafka
-      recurse: yes
 
   - name: Fetch CSRs
     fetch:

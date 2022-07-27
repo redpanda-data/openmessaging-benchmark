@@ -1,4 +1,4 @@
-- hosts: redpanda
+- hosts: kafka
   serial: 1
 
   tasks:
