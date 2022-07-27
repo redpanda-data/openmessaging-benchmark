@@ -70,7 +70,7 @@
   tasks:
     - set_fact:
         zookeeperServers: "{{ groups['zookeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
-        boostrapServers: "{{ groups['kafka'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
+        bootstrapServers: "{{ groups['kafka'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
         kafkaVersion: "3.2.0"
 
 - name: Kafka setup
@@ -88,7 +88,7 @@
           - chrony
     - file: path=/opt/kafka state=absent
           #- debug:
-          #msg: "zookeeper servers: {{ zookeeperServers }}\nboostrap servers: {{ boostrapServers }}"
+          #msg: "zookeeper servers: {{ zookeeperServers }}\nboostrap servers: {{ bootstrapServers }}"
     - name: Download Kafka package
       unarchive:
         src: "http://archive.apache.org/dist/kafka/{{ kafkaVersion }}/kafka_2.13-{{ kafkaVersion }}.tgz"
@@ -179,6 +179,34 @@
         daemon_reload: yes
         name: "kafka"
 
+- name: Setup ACLs
+  hosts: kafka
+  tasks:
+    - name: Create client config file
+      ansible.builtin.tempfile:
+          state: file
+          suffix: temp
+        register: tempfile_1
+
+    - name: Populate client config file
+      copy:
+        dest: tempfile_1
+        content: |
+          bootstrap.servers={{ bootstrapServers }}
+          sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='admin' password='admin-secret';
+          security.protocol=SASL_{{ 'SSL' if tls_enabled | default(False) else 'PLAINTEXT' }}
+          sasl.mechanism=SCRAM-SHA-256
+
+    - name: Create ACLs
+      command:
+        cmd: "bin/kafka-acls.sh --bootstrap-server {{ bootstrapServers }} --command-config {{ tempfile_1 }} {{ item }}"
+      loop:
+        - "--add --allow-principal User:sa_test --operation create  --cluster"
+        - "--add --allow-principal User:sa_test --operation read --operation write --operation create  --operation delete --operation describe --topic '*'"
+        - "--add --allow-principal User:sa_test  --operation read --group '*'"
+  tags: sasl
+  when: sasl_enabled| default(False)|bool == True
+
 - name: Chrony setup
   hosts: client
   connection: ssh
@@ -215,7 +243,7 @@
       lineinfile:
          dest: '{{ item }}'
          regexp: '^  bootstrap.servers='
-         line: '  bootstrap.servers={{ boostrapServers }}'
+         line: '  bootstrap.servers={{ bootstrapServers }}'
       with_items: '{{ drivers_list.stdout_lines }}'
 
     - name: Get list of kafka driver config files
@@ -226,7 +254,7 @@
       lineinfile:
          dest: '{{ item }}'
          regexp: '^  bootstrap.servers='
-         line: '  bootstrap.servers={{ boostrapServers }}'
+         line: '  bootstrap.servers={{ bootstrapServers }}'
       with_items: '{{ kafka_drivers_list.stdout_lines }}'
 
     - name: Configure SASL Mechanism
@@ -260,7 +288,7 @@
       ansible.builtin.replace:
          dest: '{{ item }}'
          regexp: 'localhost\:9092'
-         replace: '{{ boostrapServers }}'
+         replace: '{{ bootstrapServers }}'
       with_items: '{{ kafka_drivers_list.stdout_lines }}'
 
     - name: Configure memory

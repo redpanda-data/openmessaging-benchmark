@@ -28,7 +28,7 @@
     ansible.builtin.command:
       creates: /etc/kafka/certs/node.key
       chdir: /etc/kafka/certs
-      cmd: openssl genrsa -out node.key 2048
+      cmd: openssl genpkey -out node.key -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 
   - name: Generate a Certificate Signing Request on {{ansible_hostname}}
     ansible.builtin.command:

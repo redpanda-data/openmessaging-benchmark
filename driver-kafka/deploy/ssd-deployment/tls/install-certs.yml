@@ -14,6 +14,12 @@
       owner: kafka
       group: kafka
 
+  - name: Combine keystore
+     ansible.builtin.command:
+      creates: /etc/kafka/certs/keystore.pem
+      chdir: /etc/kafka/certs
+      cmd: cat node.crt node.key > keystore.pem
+
   - name: Configure via RPK
     shell:
       cmd:
