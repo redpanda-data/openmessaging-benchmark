@@ -23,29 +23,7 @@
 
 4. To setup the deployed nodes. Run:
 
-        ansible-playbook \
-            --user ubuntu \
-            --inventory `which terraform-inventory` \
-        deploy.yaml
-
-Note: you might encounter the following error:
-
-```
-[WARNING]:  * Failed to parse /opt/homebrew/bin/terraform-inventory with script plugin: Inventory script (/opt/homebrew/bin/terraform-inventory) had an execution error: Error reading tfstate file:
-0.12 format error: <nil>; pre-0.12 format error: <nil> (nil error means no content/modules found in the respective format)
-[WARNING]:  * Failed to parse /opt/homebrew/bin/terraform-inventory with yaml plugin: 'utf-8' codec can't encode characters in position 0-3: surrogates not allowed
-[WARNING]:  * Failed to parse /opt/homebrew/bin/terraform-inventory with ini plugin: /opt/homebrew/bin/terraform-inventory:3: Expected key=value host variable assignment, got: 
-[WARNING]: Unable to parse /opt/homebrew/bin/terraform-inventory as an inventory source
-
-```
-
-In that case, we've found this workaround setting the TF_STATE environment variable helps:
-
-```
-export TF_STATE=./
-```
-
-Then try running the ansible command again.
+        ansible-playbook deploy.yaml
 
 ## Running the benchmark
 
