@@ -29,14 +29,15 @@
 
 ### New
 
-1. Run smoke tests (run approximately one hour)
+1. Execute tests (run approximately one hour)
 
         ansible-playbook test-smoke.yaml
 
+2. Fetch report. `22.2.1` is an arbitrary label to mark the report
 
-2. Run full tests (run approximately ten hour)
+        fetch-n-report.sh 22.2.1
 
-        ansible-playbook test-full.yaml
+For running full tests use `ansible-playbook test-full.yaml` (run approximately ten hour)
 
 ### Old
 
