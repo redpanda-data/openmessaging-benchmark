@@ -231,6 +231,14 @@
         src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
     - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+    - copy:
+        mode: "preserve"
+        src: "perf-footprint-smoke.sh"
+        dest: "/opt/benchmark/perf-footprint-smoke.sh"
+    - copy:
+        mode: "preserve"
+        src: "perf-footprint-full.sh"
+        dest: "/opt/benchmark/perf-footprint-full.sh"
     #- shell: tuned-adm profile latency-performance
 
     - name: Get list of driver config files

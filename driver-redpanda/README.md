@@ -27,6 +27,19 @@
 
 ## Running the benchmark
 
+### New
+
+1. Run smoke tests (run approximately one hour)
+
+        ansible-playbook test-smoke.yaml
+
+
+2. Run full tests (run approximately ten hour)
+
+        ansible-playbook test-full.yaml
+
+### Old
+
 1. SSH to the client machine. 
 
 		ssh -i ~/.ssh/redpanda_aws ubuntu@$(terraform output --raw client_ssh_host)

@@ -1,0 +1,9 @@
+- name: run perf full tests
+  hosts: control
+  tasks:
+    - become_user: ubuntu
+      shell: |
+        cd /opt/benchmark
+        ./perf-footprint-full.sh
+      async: 72000
+      poll: 10
