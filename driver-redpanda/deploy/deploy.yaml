@@ -232,11 +232,6 @@
         src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
     - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
-    - name: copy workloads
-      copy:
-        mode: "preserve"
-        src: workloads
-        dest: /opt/benchmark/
     #- shell: tuned-adm profile latency-performance
 
     - name: Get list of driver config files

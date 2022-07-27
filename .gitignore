@@ -20,3 +20,6 @@ core/*.json
 # IntelliJ artifacts
 .idea/
 *.iml
+
+driver-redpanda/deploy/.terraform.lock.hcl
+driver-redpanda/deploy/hosts.ini
