@@ -22,11 +22,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class PeriodStats {
     public long messagesSent = 0;
     public long bytesSent = 0;
+    public long errors = 0;
+    public long pollErrors = 0;
 
     public long messagesReceived = 0;
     public long bytesReceived = 0;
 
     public long totalMessagesSent = 0;
+    public long totalErrors = 0;
     public long totalMessagesReceived = 0;
 
     @JsonIgnore

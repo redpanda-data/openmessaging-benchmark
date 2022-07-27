@@ -77,6 +77,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final StatsLogger statsLogger;
 
     private final LongAdder messagesSent = new LongAdder();
+    private final LongAdder errors = new LongAdder();
+    private final LongAdder pollErrors = new LongAdder();
     private final LongAdder bytesSent = new LongAdder();
     private final Counter messagesSentCounter;
     private final Counter bytesSentCounter;
@@ -87,6 +89,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final Counter bytesReceivedCounter;
 
     private final LongAdder totalMessagesSent = new LongAdder();
+    private final LongAdder totalErrors = new LongAdder();
     private final LongAdder totalMessagesReceived = new LongAdder();
 
     private final Recorder publishLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
@@ -239,6 +242,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
                             cumulativePublishDelayLatencyRecorder.recordValue(sendDelayMicros);
                             publishDelayLatencyStats.registerSuccessfulEvent(sendDelayMicros, TimeUnit.MICROSECONDS);
                         }).exceptionally(ex -> {
+                            errors.increment();
+                            totalErrors.increment();
                             log.warn("Write error on message", ex);
                             return null;
                         });
@@ -265,11 +270,14 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
         stats.messagesSent = messagesSent.sumThenReset();
         stats.bytesSent = bytesSent.sumThenReset();
+        stats.errors = errors.sumThenReset();
+        stats.pollErrors = pollErrors.sumThenReset();
 
         stats.messagesReceived = messagesReceived.sumThenReset();
         stats.bytesReceived = bytesReceived.sumThenReset();
 
         stats.totalMessagesSent = totalMessagesSent.sum();
+        stats.totalErrors = totalErrors.sum();
         stats.totalMessagesReceived = totalMessagesReceived.sum();
 
         stats.publishLatency = publishLatencyRecorder.getIntervalHistogram();
@@ -293,6 +301,11 @@ public class LocalWorker implements Worker, ConsumerCallback {
         stats.messagesSent = totalMessagesSent.sum();
         stats.messagesReceived = totalMessagesReceived.sum();
         return stats;
+    }
+
+    @Override
+    public void error() {
+        pollErrors.increment();
     }
 
     @Override

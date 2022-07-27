@@ -30,6 +30,11 @@ public class TestResult {
     public int producersPerTopic;
     public int consumersPerTopic;
 
+    public List<Long> sent = new ArrayList<>();
+    public List<Long> consumed = new ArrayList<>();
+    public List<Long> publishFailed = new ArrayList<>();
+    public List<Long> consumeFailed = new ArrayList<>();
+
     public List<Double> publishRate = new ArrayList<>();
     public List<Double> consumeRate = new ArrayList<>();
     public List<Long> backlog = new ArrayList<>();

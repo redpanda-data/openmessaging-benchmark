@@ -42,13 +42,17 @@ public class RedpandaBenchmarkProducer implements BenchmarkProducer {
 
         CompletableFuture<Void> future = new CompletableFuture<>();
 
-        producer.send(record, (metadata, exception) -> {
-            if (exception != null) {
-                future.completeExceptionally(exception);
-            } else {
-                future.complete(null);
-            }
-        });
+        try {
+            producer.send(record, (metadata, exception) -> {
+                if (exception != null) {
+                    future.completeExceptionally(exception);
+                } else {
+                    future.complete(null);
+                }
+            });
+        } catch(Exception e) {
+            future.completeExceptionally(e);
+        }
 
         return future;
     }
