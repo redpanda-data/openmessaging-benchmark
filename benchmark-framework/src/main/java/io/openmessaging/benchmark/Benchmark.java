@@ -34,10 +34,21 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 import io.openmessaging.benchmark.worker.DistributedWorkersEnsemble;
+import io.openmessaging.benchmark.worker.SwarmWorker;
 import io.openmessaging.benchmark.worker.LocalWorker;
 import io.openmessaging.benchmark.worker.Worker;
 
 public class Benchmark {
+    static enum Topology {
+        SWARM("swarm"),
+        ENSEMBLE("ensemble");
+        
+        public final String name;
+        
+        Topology(String name) {
+            this.name = name;
+        }
+    }
 
     static class Arguments {
 
@@ -50,6 +61,9 @@ public class Benchmark {
         @Parameter(names = { "-d",
                 "--drivers" }, description = "Drivers list. eg.: pulsar/pulsar.yaml,kafka/kafka.yaml")//, required = true)
         public List<String> drivers;
+
+        @Parameter(names = { "-t", "--topology" }, description = "Workers topology. eg: swarm or ensemble")
+        public String topology;
 
         @Parameter(names = { "-w",
                 "--workers" }, description = "List of worker nodes. eg: http://1.2.3.4:8080,http://4.5.6.7:8080")
@@ -130,7 +144,16 @@ public class Benchmark {
         Worker worker;
 
         if (arguments.workers != null && !arguments.workers.isEmpty()) {
-            worker = new DistributedWorkersEnsemble(arguments.workers, arguments.extraConsumers);
+            if (arguments.topology == null || arguments.topology.equals(Topology.ENSEMBLE.name)) {
+                log.info("Using DistributedWorkersEnsemble workers topology");
+                worker = new DistributedWorkersEnsemble(arguments.workers, arguments.extraConsumers);
+            } else if (arguments.topology.equals(Topology.SWARM.name)) {
+                log.info("Using SwarmWorker workers topology");
+                worker = new SwarmWorker(arguments.workers);
+            } else {
+                log.error("Unsupported wroker topology: {}", arguments.topology);
+                throw new RuntimeException();
+            }
         } else {
             // Use local worker implementation
             worker = new LocalWorker();
