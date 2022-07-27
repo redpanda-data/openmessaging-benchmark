@@ -373,6 +373,5 @@
     - dashboard_id: 7496
       revision_id: 1
       datasource: prometheus
-      ip: 169.254.169.123
   tags:
     - prometheus
