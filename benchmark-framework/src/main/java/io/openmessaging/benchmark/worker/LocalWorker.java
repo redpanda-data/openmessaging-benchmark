@@ -377,6 +377,35 @@ public class LocalWorker implements Worker, ConsumerCallback {
     }
 
     @Override
+    public void messageReceived(int payloadSize, long e2eLatencyNs) {
+        if (e2eLatencyNs < 0) {
+            error();
+            return;
+        }
+        
+        messagesReceived.increment();
+        totalMessagesReceived.increment();
+        messagesReceivedCounter.inc();
+        bytesReceived.add(payloadSize);
+        bytesReceivedCounter.add(payloadSize);
+
+
+        long endToEndLatencyMicros = TimeUnit.NANOSECONDS.toMicros(e2eLatencyNs);
+        
+        endToEndCumulativeLatencyRecorder.recordValue(endToEndLatencyMicros);
+        endToEndLatencyRecorder.recordValue(endToEndLatencyMicros);
+        endToEndLatencyStats.registerSuccessfulEvent(endToEndLatencyMicros, TimeUnit.MICROSECONDS);
+
+        while (consumersArePaused) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
     public void pauseConsumers() throws IOException {
         consumersArePaused = true;
         log.info("Pausing consumers");

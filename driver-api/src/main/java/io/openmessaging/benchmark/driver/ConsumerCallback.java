@@ -32,5 +32,7 @@ public interface ConsumerCallback {
      */
     void messageReceived(byte[] payload, long publishTimestamp);
 
+    void messageReceived(int payloadSize, long e2eLatencyNs);
+
     void error();
 }
