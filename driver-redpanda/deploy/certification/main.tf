@@ -8,6 +8,10 @@ provider "random" {
   version = "~> 2.1"
 }
 
+variable "username" {
+  description = "Owner"
+}
+
 variable "public_key_path" {
   description = <<DESCRIPTION
 Path to the SSH public key to be used for authentication.
@@ -145,7 +149,8 @@ resource "aws_instance" "redpanda" {
   monitoring             = true
 
   tags = {
-    Name = "redpanda-${count.index}"
+    Name = "omb-redpanda-${count.index}"
+    Owner = "${var.username}"
   }
 }
 
@@ -165,7 +170,8 @@ resource "aws_instance" "client" {
   }
 
   tags = {
-    Name = "redpanda-client-${count.index}"
+    Name = "omb-client-${count.index}"
+    Owner = "${var.username}"
   }
 }
 
