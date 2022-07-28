@@ -195,6 +195,16 @@
         --ips {{ seed_private_ip }}
       {% endif %}
 
+      rpk redpanda config set 'rpk.admin_api' "
+            brokers:
+              - {{ hostvars[inventory_hostname].private_ip }}:9644
+        " --format yaml
+
+      rpk redpanda config set 'rpk.kafka_api' "
+            brokers:
+              - {{ hostvars[inventory_hostname].private_ip }}:9092
+        " --format yaml
+
   handlers:
   - name: restart redpanda-tuner
     systemd:
@@ -203,6 +213,10 @@
   - name: restart redpanda
     systemd:
       name: redpanda
+      state: restarted
+  - name: restart prometheus
+    systemd:
+      name: prometheus
       state: restarted
 
 - name: Chrony setup
@@ -243,6 +257,42 @@
         regexp: "^  bootstrap.servers="
         line: "  bootstrap.servers={{ bootstrapServers }}"
       with_items: "{{ drivers_list.stdout_lines }}"
+
+    - name: Configure SASL Mechanism
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  sasl.mechanism="
+        insertafter: "^  bootstrap.servers="
+        line: "  sasl.mechanism=SCRAM-SHA-256"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: sasl_enabled| default(False)|bool == True
+
+    - name: Configure Benchmark Name
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^name: Redpanda"
+        line: "name: Redpanda{{ '+SASL' if sasl_enabled | default(False) }}{{ '+TLS' if tls_enabled | default(False) }}"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
+
+    - name: Configure Security Protocol
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  security.protocol="
+        insertafter: "^  bootstrap.servers="
+        line: "  security.protocol={{ 'SASL_' if sasl_enabled | default(False) }}{{ 'SSL' if tls_enabled | default(False) else 'PLAINTEXT' }}"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
+
+    - name: Configure JAAS
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  sasl.jaas.config="
+        insertafter: "^  bootstrap.servers="
+        line: "  sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='sa_test' password='sa_test';"
+      with_items: "{{ drivers_list.stdout_lines }}"
+      when: tls_enabled| default(False)|bool == True
+
     - name: Configure memory
       lineinfile:
         dest: /opt/benchmark/bin/benchmark-worker
@@ -362,3 +412,55 @@
     - dashboard_id: 1860
       revision_id: 21
       datasource: prometheus
+
+- name: Create CA
+  ansible.builtin.import_playbook: tls/create-ca.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Generate CSRs
+  ansible.builtin.import_playbook: tls/generate-csrs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Generate CSRs
+  ansible.builtin.import_playbook: tls/issue-certs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- name: Install certs
+  ansible.builtin.import_playbook: tls/install-certs.yml
+  when: tls_enabled| default(False)|bool == True
+  tags: tls
+
+- hosts: redpanda
+  tasks:
+  - name: Configure SASL
+    shell:
+      cmd: |
+        rpk cluster config set superusers ['admin'] --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
+        rpk acl user create admin -p admin --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
+        rpk acl user create sa_test -p sa_test --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
+        rpk acl create --allow-principal User:sa_test --operation all --topic '*' --group '*' --user admin --password admin
+        rpk acl create --allow-principal User:sa_test --operation all --cluster --user admin --password admin
+        rpk cluster config set enable_sasl true --api-urls {{ hostvars[inventory_hostname].private_ip }}:9644
+    run_once: True 
+    when: sasl_enabled| default(False)|bool == True
+
+  - name: Configure SASL for rpk
+    shell:
+      cmd: |
+        rpk redpanda config set 'rpk.admin_api' "
+            sasl:
+              user: admin
+              password: admin
+              type: SCRAM-SHA-256
+        " --format yaml
+        rpk redpanda config set 'rpk.kafka_api' "
+            sasl:
+              user: admin
+              password: admin
+              type: SCRAM-SHA-256
+        " --format yaml
+    when: sasl_enabled| default(False)|bool == True
+  tags: sasl

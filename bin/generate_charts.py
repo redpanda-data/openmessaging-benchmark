@@ -200,7 +200,7 @@ def generate_charts(files):
         data = json.load(open(file))
         data['workload'] = data['workload'].replace('/', '-')
         begin_time = data['beginTime'] if 'beginTime' in data.keys() else ""
-        rp_version = data['version'] if 'version' in data.keys() and data['version'] else "unknown_version"
+        rp_version = data['version'] if 'version' in data.keys() and data['version'] else ""
         unique_name = "{ver}-{ts}-{driver}-{workload}".format(ver=rp_version, ts=begin_time, driver=data['driver'], workload=data['workload'])
         # name used as chart label.
         name = "{ver}-{driver}-{workload}".format(ver=rp_version, driver=data['driver'], workload=data['workload'])
