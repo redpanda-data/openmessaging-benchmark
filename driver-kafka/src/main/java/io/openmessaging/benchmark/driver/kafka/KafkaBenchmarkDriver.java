@@ -29,6 +29,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -42,6 +43,8 @@ import io.openmessaging.benchmark.driver.BenchmarkConsumer;
 import io.openmessaging.benchmark.driver.BenchmarkDriver;
 import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KafkaBenchmarkDriver implements BenchmarkDriver {
 
@@ -88,7 +91,13 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
                 // Delete all existing topics
                 DeleteTopicsResult deletes = admin.deleteTopics(topics);
                 deletes.all().get();
-            } catch (InterruptedException | ExecutionException e) {
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof UnknownTopicOrPartitionException) {
+                    log.warn("Topic(s) appeared to be deleted already (race condition)");
+                } else {
+                    throw new IOException(e);
+                }
+            } catch (InterruptedException e) {
                 e.printStackTrace();
                 throw new IOException(e);
             }
@@ -99,6 +108,8 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
     public String getTopicNamePrefix() {
         return "test-topic";
     }
+
+    private static final Logger log = LoggerFactory.getLogger(KafkaBenchmarkDriver.class);
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override

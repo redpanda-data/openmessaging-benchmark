@@ -94,6 +94,8 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
             } catch (ExecutionException e) {
                 if (e.getCause() instanceof UnknownTopicOrPartitionException) {
                     log.warn("Topic(s) appeared to be deleted already (race condition)");
+                } else {
+                    throw new IOException("Could not delete previous topics", e);
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
