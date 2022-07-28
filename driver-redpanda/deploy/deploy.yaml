@@ -213,11 +213,12 @@
     - name: Set up chronyd
       template:
         src: "templates/chrony.conf"
-        dest: "/etc/chrony.conf"
+        dest: "/etc/chrony/chrony.conf"
     - systemd:
         state: restarted
         daemon_reload: yes
         name: "chronyd"
+  tags: chrony
 
 - name: Setup Benchmark client
   hosts: client
@@ -293,6 +294,10 @@
   hosts: redpanda, client
   roles:
   - cloudalchemy.node_exporter
+  vars:
+  - node_exporter_enabled_collectors: [ntp]
+  tags:
+    - node_exporter
 
 - name: create a local tmp directory
   hosts: localhost
@@ -314,6 +319,9 @@
       delegate_to: "{{ item }}"
       delegate_facts: True 
       with_items: "{{ groups['prometheus'] }}"
+  tags:
+    - prometheus
+    - grafana
 
 - hosts: redpanda[0]
   tasks:
@@ -362,3 +370,8 @@
     - dashboard_id: 1860
       revision_id: 21
       datasource: prometheus
+    - dashboard_id: 7496
+      revision_id: 1
+      datasource: prometheus
+  tags:
+    - prometheus
