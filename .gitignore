@@ -22,3 +22,6 @@ core/*.json
 driver-redpanda/deploy/.terraform.lock.hcl
 driver-redpanda/deploy/hosts.ini
 driver-redpanda/deploy/results
+
+driver-redpanda/deploy/certification/.terraform.lock.hcl
+driver-redpanda/deploy/certification/hosts.ini
