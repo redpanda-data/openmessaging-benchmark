@@ -135,8 +135,20 @@
         dest: "/opt/benchmark/perf-footprint-smoke.sh"
     - copy:
         mode: "preserve"
-        src: "perf-footprint-full.sh"
-        dest: "/opt/benchmark/perf-footprint-full.sh"
+        src: "perf-footprint-full-load-625k.sh"
+        dest: "/opt/benchmark/perf-footprint-full-load-625k.sh"
+    - copy:
+        mode: "preserve"
+        src: "perf-footprint-full-load-all.sh"
+        dest: "/opt/benchmark/perf-footprint-full-load-all.sh"
+    - copy:
+        mode: "preserve"
+        src: "perf-footprint-full-simple.sh"
+        dest: "/opt/benchmark/perf-footprint-full-simple.sh"
+    - copy:
+        mode: "preserve"
+        src: "perf-lib.sh"
+        dest: "/opt/benchmark/perf-lib.sh"
     - name: Get list of driver config files
       raw: ls -1 /opt/benchmark/driver-redpanda/*.yaml
       register: drivers_list

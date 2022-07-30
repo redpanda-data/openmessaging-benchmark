@@ -4,10 +4,29 @@
 
 - Terraform
 
+        https://learn.hashicorp.com/tutorials/terraform/install-cli
+
 - Ansible
+
+        sudo apt update
+        sudo apt install software-properties-common -y
+        sudo add-apt-repository --yes --update ppa:ansible/ansible
+        sudo apt install ansible -y
+        ansible-galaxy install mrlesmithjr.mdadm
 
 - Python 3 set as default.
 
+        sudo apt install python3-pip
+        pip3 install sh
+        sudo apt install gnuplot
+
+- Java
+
+        sudo apt install maven
+
+- bzip2
+
+        sudo apt install bzip2
 
 ## Setup
 
@@ -18,7 +37,7 @@
 3. In the `driver-redpanda/deploy` directory.  Run the following: 
 
         terraform init
-        terraform apply -auto-approve
+        terraform apply -auto-approve -var="username=owner"
 
 4. To setup the deployed nodes. Run:
 
@@ -29,18 +48,13 @@
 
 ## Running the benchmark
 
-1. SSH to the client machine. 
+1. Execute tests (run approximately one hour)
 
-        ssh -i ~/.ssh/redpanda_aws ubuntu@$(terraform output --raw client_ssh_host)
+        ansible-playbook test.yaml --extra-vars "test=perf-footprint-smoke"
 
-2. Change into the benchmark directory 
+2. Fetch report. `22.2.1` is an arbitrary label to mark the report
 
-        cd /opt/benchmark
-
-3. Run a benchmark using a specific driver and workload, for example: 
-
-        sudo bin/benchmark -d driver-redpanda/redpanda-ack-all-group-linger-10ms.yaml \
-                workloads/blog/1-topic-100-partitions-1kb-4-producers-500k-rate.yaml
+        ./fetch-n-report.sh 22.2.1
 
 ## Test another redpanda version
 
@@ -54,5 +68,5 @@
 
 Once you are done. Tear down the cluster with the following command: 
 
-	terraform destroy -auto-approve
+	terraform destroy -auto-approve -var="username=owner"
 
