@@ -34,39 +34,20 @@
 
 2. Create an ssh key for the benchmark using the following: `ssh-keygen -f ~/.ssh/redpanda_aws`. Set the password to blank.
 
-3. In the `driver-redpanda/deploy` directory.  Run the following: 
+3. In the `driver-redpanda/deploy/certification` directory.  Run the following: 
 
         terraform init
-        terraform apply -auto-approve -var="username=owner"
-
-4. To setup the deployed nodes. Run:
-
-        ansible-playbook deploy.yaml
-        ansible-playbook redpanda.install.yaml --extra-vars "redpanda_version=22.2.1~rc1-1"
-        ansible-playbook redpanda.configure.yaml
-        ansible-playbook redpanda.start.yaml
 
 ## Running the benchmark
 
-1. Execute tests (run approximately one hour)
+Use `./test-load-10h.sh`, `test-simple-8h.sh` or `test-smoke-4h.sh` script to run a test suite
 
-        ansible-playbook test.yaml --extra-vars "test=perf-footprint-smoke"
+### Manual test execution
 
-2. Fetch report. `22.2.1` is an arbitrary label to mark the report
-
-        ./fetch-n-report.sh 22.2.1
-
-## Test another redpanda version
-
-        ansible-playbook redpanda.stop.yaml
-        ansible-playbook redpanda.uninstall.yaml
-        ansible-playbook redpanda.install.yaml --extra-vars "redpanda_version=22.1.5~rc1-1"
-        ansible-playbook redpanda.configure.yaml
-        ansible-playbook redpanda.start.yaml
+Inspect the benchmark scripts to learn how to manually run tests and how to test different versions
 
 ## Cleanup
 
-Once you are done. Tear down the cluster with the following command: 
+Cleanup is done automaticly unless a tests failed. In this case you need to destroy the vms manually:
 
 	terraform destroy -auto-approve -var="username=owner"
-
