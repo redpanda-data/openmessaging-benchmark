@@ -9,6 +9,8 @@ RestartSec=1s
 Restart=on-failure
 Type=simple
 LimitNOFILE=300000
+StandardOutput=null
+StandardError=null
 
 [Install]
 WantedBy=multi-user.target
