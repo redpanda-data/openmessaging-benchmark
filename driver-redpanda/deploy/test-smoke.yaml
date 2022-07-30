@@ -1,9 +1,0 @@
-- name: run perf smoke tests
-  hosts: control
-  tasks:
-    - become_user: ubuntu
-      shell: |
-        cd /opt/benchmark
-        ./perf-footprint-smoke.sh
-      async: 36000
-      poll: 10
