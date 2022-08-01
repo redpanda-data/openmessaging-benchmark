@@ -165,13 +165,14 @@
 
   - name: configure redpanda
     notify:
+      - fix config owner
       - restart redpanda-tuner
       - restart redpanda
     vars:
       seed_private_ip: '{{ hostvars[groups["redpanda"][0]].private_ip }}'
     shell: |
       rpk config set cluster_id 'test'
-      rpk config set organization 'vectorized.io'
+      rpk config set organization 'redpanda.com'
       rpk config set redpanda.advertised_kafka_api '{
         address: {{ hostvars[inventory_hostname].private_ip }},
         port: 9092
@@ -196,6 +197,18 @@
       {% endif %}
 
   handlers:
+  # Running rpk as root to modify Redpanda configuration creates 
+  # a backup of the redpanda.yaml file owned by the root user. 
+  # This prevents the Redpanda service from restarting, so check
+  # the permissions are set correctly.
+  - name: fix config owner
+    file:
+      path: /etc/redpanda
+      owner: redpanda 
+      group: redpanda
+      mode: 0750
+      state: directory
+      recurse: yes
   - name: restart redpanda-tuner
     systemd:
       name: redpanda-tuner
