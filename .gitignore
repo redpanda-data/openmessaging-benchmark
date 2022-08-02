@@ -25,3 +25,5 @@ driver-redpanda/deploy/results
 
 driver-redpanda/deploy/certification/.terraform.lock.hcl
 driver-redpanda/deploy/certification/hosts.ini
+driver-redpanda/deploy/certification/log
+driver-redpanda/deploy/certification/results
