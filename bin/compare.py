@@ -4,9 +4,7 @@ from sh import rm
 import os
 
 import json
-import jinja2
 from sys import argv
-from collections import defaultdict
 
 def min_quantiles(data):
     s = []
@@ -15,7 +13,7 @@ def min_quantiles(data):
     s.sort(key=lambda x:x[0])
     return s[0][1]
 
-def report(a_path, b_path):
+def report(name, a_path, b_path):
     def load(dir_path):
         sets = dict()
         for path in os.listdir(dir_path):
@@ -54,9 +52,39 @@ def report(a_path, b_path):
     asets = load(a_path)
     bsets = load(b_path)
 
+    is_name_used = False
+
     for akey in asets.keys():
+        line = ""
+        if is_name_used:
+            line = ","
+        else:
+            line = name + ","
+            is_name_used = True
         a = asets[akey]
-        line = a["workload"] + "," + a["driver"] + "," 
+        line = line + a["workload"] + "," + a["driver"] + ","
+
+        if akey in bsets:
+            b = bsets[akey]
+            ap50 = a["aggregatedPublishLatency50pct"]
+            bp50 = b["aggregatedPublishLatency50pct"]
+            dp50 = (100.0 * (bp50 - ap50) / ap50)
+            ap99 = a["aggregatedPublishLatency99pct"]
+            bp99 = b["aggregatedPublishLatency99pct"]
+            dp99 = (100.0 * (bp99 - ap99) / ap99)
+            if a["workload"] != "simple":
+                ae2e50 = a["aggregatedEndToEndLatency50pct"]
+                be2e50 = b["aggregatedEndToEndLatency50pct"]
+                de2e50 = (100.0 * (be2e50 - ae2e50) / ae2e50)
+                ae2e99 = a["aggregatedEndToEndLatency99pct"]
+                be2e99 = b["aggregatedEndToEndLatency99pct"]
+                de2e99 = (100.0 * (be2e99 - ae2e99) / ae2e99)
+                line = line + f"{dp50},{dp99},{de2e50},{de2e99},"
+            else:
+                line = line + f"{dp50},{dp99},,,"
+        else:
+            line = line + ",,,,"
+
         line = log(line, a)
         if akey in bsets:
             line = log(line, bsets[akey])
@@ -66,10 +94,51 @@ def report(a_path, b_path):
     
     for bkey in bsets.keys():
         if bkey not in asets:
+            line = ""
+            if is_name_used:
+                line = ","
+            else:
+                line = name + ","
+                is_name_used = True
             b = bsets[bkey]
-            line = b["workload"] + "," + b["driver"] + "," 
+            line = line + ",,,,"
+            line = line + b["workload"] + "," + b["driver"] + "," 
             line = missing(line)
             line = log(line, b)
             print(line[:-1])
 
-report(argv[1], argv[2])
+with open(argv[1], "r") as template_f:
+    template = json.load(template_f)
+
+if len(template["versions"]) != 2:
+    raise Exception("Can compare only two versions")
+
+for group in template["groups"]:
+    if template["versions"][0] not in group:
+        raise Exception(f"version {template['versions'][0]} isn't found in {group['name']}")
+    if template["versions"][1] not in group:
+        raise Exception(f"version {template['versions'][1]} isn't found in {group['name']}")
+
+# header
+v0 = template["versions"][0]
+v1 = template["versions"][1]
+line = f",,,100% * ({v1}-{v0}) / {v0},,,,"
+line += v0 + ","
+for i in range(0,9):
+    line += ","
+line += v1 + ","
+for i in range(0,8):
+    line += ","
+print(line)
+line = ",,,publish,,end-to-end,,publish,,,,,end-to-end,,,,,publish,,,,,end-to-end,,,,"
+print(line)
+line = ",,,p50,p99,p50,p99,min,p50,p95,p99,max,min,p50,p95,p99,max,min,p50,p95,p99,max,min,p50,p95,p99,max"
+print(line)
+
+for group in template["groups"]:
+    report(group["name"], group[v0], group[v1])
+    line = ""
+    for i in range(0,26):
+        line += ","
+    # separator
+    print(line)
