@@ -107,21 +107,33 @@ def report(name, a_path, b_path):
             line = log(line, b)
             print(line[:-1])
 
-with open(argv[1], "r") as template_f:
-    template = json.load(template_f)
+if not os.path.isdir(argv[1]):
+    raise Exception(f"{argv[1]} isn't a directory")
 
-if len(template["versions"]) != 2:
+if len(argv[2:]) != 2:
     raise Exception("Can compare only two versions")
 
-for group in template["groups"]:
-    if template["versions"][0] not in group:
-        raise Exception(f"version {template['versions'][0]} isn't found in {group['name']}")
-    if template["versions"][1] not in group:
-        raise Exception(f"version {template['versions'][1]} isn't found in {group['name']}")
+template = dict()
+template["groups"] = []
+
+for path in os.listdir(argv[1]):
+    if not os.path.isdir(os.path.join(argv[1], path)):
+        continue
+    path = os.path.join(argv[1], path)
+    versions = os.listdir(path)
+    if argv[2] not in versions:
+        raise Exception(f"can't find {argv[2]} in {path}")
+    if argv[3] not in versions:
+        raise Exception(f"can't find {argv[3]} in {path}")
+    template["groups"].append({
+        "name": "todo",
+        argv[2]: os.path.join(path, argv[2]),
+        argv[3]: os.path.join(path, argv[3])
+    })
 
 # header
-v0 = template["versions"][0]
-v1 = template["versions"][1]
+v0 = argv[2]
+v1 = argv[3]
 line = f",,,100% * ({v1}-{v0}) / {v0},,,,"
 line += v0 + ","
 for i in range(0,9):
