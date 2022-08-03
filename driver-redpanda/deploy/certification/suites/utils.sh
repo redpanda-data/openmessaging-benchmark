@@ -2,6 +2,8 @@
 
 set -e
 
+export OMB=/opt/benchmark
+
 function worker_stop() {
     ssh -i ~/.ssh/redpanda_aws $1 sudo systemctl stop benchmark-worker
 }

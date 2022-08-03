@@ -129,26 +129,11 @@
         src: ../../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
     - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
-    - copy:
+    - name: copy test suites
+      copy:
         mode: "preserve"
-        src: "perf-footprint-smoke.sh"
-        dest: "/opt/benchmark/perf-footprint-smoke.sh"
-    - copy:
-        mode: "preserve"
-        src: "perf-footprint-full-load-625k.sh"
-        dest: "/opt/benchmark/perf-footprint-full-load-625k.sh"
-    - copy:
-        mode: "preserve"
-        src: "perf-footprint-full-load-all.sh"
-        dest: "/opt/benchmark/perf-footprint-full-load-all.sh"
-    - copy:
-        mode: "preserve"
-        src: "perf-footprint-full-simple.sh"
-        dest: "/opt/benchmark/perf-footprint-full-simple.sh"
-    - copy:
-        mode: "preserve"
-        src: "perf-lib.sh"
-        dest: "/opt/benchmark/perf-lib.sh"
+        src: suites
+        dest: /opt/benchmark/
     - name: Get list of driver config files
       raw: ls -1 /opt/benchmark/driver-redpanda/*.yaml
       register: drivers_list
@@ -232,10 +217,12 @@
         warn: no
 
 - name: disable unattended-upgrades
-  systemd:
-    name: unattended-upgrades
-    enabled: no
-    state: stopped
+  hosts: redpanda
+  tasks:
+    - systemd:
+        name: unattended-upgrades
+        enabled: no
+        state: stopped
 
 - name: Hosts addresses
   hosts: localhost

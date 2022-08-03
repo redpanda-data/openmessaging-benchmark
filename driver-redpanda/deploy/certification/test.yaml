@@ -4,6 +4,6 @@
     - become_user: ubuntu
       shell: |
         cd /opt/benchmark
-        ./{{ test }}.sh
+        /opt/benchmark/suites/{{ suite }}.sh
       async: 72000
       poll: 10
