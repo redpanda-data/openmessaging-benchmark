@@ -63,8 +63,6 @@ public class SwarmWorker implements Worker {
     private final AsyncHttpClient httpClient;
 
     public SwarmWorker(List<String> workers) {
-        Preconditions.checkArgument(workers.size() > 1, "Workers must be > 1");
-
         this.workers = workers;
 
         httpClient = asyncHttpClient(config().setRequestTimeout(REQUEST_TIMEOUT_MS).setReadTimeout(READ_TIMEOUT_MS));
