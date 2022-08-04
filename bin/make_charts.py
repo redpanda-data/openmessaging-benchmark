@@ -145,7 +145,13 @@ def latencies(output, measures, dt, output_name, title, top_cut=0.99, top_paddin
                 values.append(value)
     values.sort()
     boundary_top = values[int(top_cut*len(values))]*top_padding
+    if boundary_top == 0.0:
+        boundary_top = value[-1]
+    if boundary_top == 0.0:
+        boundary_top = 1
     boundary_sub = values[int(sub_cut*len(values))]*sub_padding
+    if boundary_sub == 0.0:
+        boundary_sub = 0.1 * boundary_top
     with open(f"{output}/{output_name}.gnuplot", "w") as output_gnuplot:
         output_gnuplot.write(jinja2.Template(LATENCIES_SUB).render(
             output = output_name,
@@ -252,6 +258,20 @@ def analyse(output, data, dt, prefix=""):
         dt=dt,
         output_name="pub",
         title=prefix + f"publish (ms, {int(dt)}s agg)"
+    )
+
+    latencies(
+        output,
+        [
+            Measures(values=data["publishDelayLatency50pct"], log="delay-p50.log", name="p50"),
+            Measures(values=data["publishDelayLatency75pct"], log="delay-p75.log", name="p75"),
+            Measures(values=data["publishDelayLatency95pct"], log="delay-p95.log", name="p95"),
+            Measures(values=data["publishDelayLatency99pct"], log="delay-p99.log", name="p99"),
+            Measures(values=data["publishDelayLatencyMax"], log="delay-max.log", name="max")
+        ],
+        dt=dt,
+        output_name="delay",
+        title=prefix + f"publish delay (ms, {int(dt)}s agg)"
     )
 
     latencies(
