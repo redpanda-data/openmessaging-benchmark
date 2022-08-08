@@ -18,6 +18,12 @@ function redpanda_stop () {
 function redpanda_wipe () {
     ssh -i ~/.ssh/redpanda_aws $1 sudo rm -rf /mnt/vectorized/redpanda/data
     ssh -i ~/.ssh/redpanda_aws $1 sudo rm -rf /mnt/vectorized/redpanda/coredump
+    ssh -i ~/.ssh/redpanda_aws $1 sudo rm /etc/redpanda/redpanda.yaml
+    ssh -i ~/.ssh/redpanda_aws $1 sudo cp /etc/redpanda/redpanda.backup.yaml /etc/redpanda/redpanda.yaml
+    ssh -i ~/.ssh/redpanda_aws $1 sudo chown redpanda:redpanda /etc/redpanda/redpanda.yaml
+}
+function redpanda_configure () {
+    ssh -i ~/.ssh/redpanda_aws $2 sudo /home/ubuntu/configure.$1.sh
 }
 function redpanda_start () {
     ssh -i ~/.ssh/redpanda_aws $1 sudo systemctl start redpanda
@@ -27,14 +33,16 @@ export -f worker_stop
 export -f worker_start
 export -f redpanda_stop
 export -f redpanda_wipe
+export -f redpanda_configure
 export -f redpanda_start
 
-function reset_all () {
+function reset () {
     sudo bash -c 'echo "$(date) Restarting workload" >> log'
     cat /opt/benchmark/client | xargs -L 1 bash -c 'worker_stop "$@"' _
     sudo bash -c 'echo "$(date) Restarting redpanda" >> log'
     cat /opt/benchmark/redpanda | xargs -L 1 bash -c 'redpanda_stop "$@"' _
     cat /opt/benchmark/redpanda | xargs -L 1 bash -c 'redpanda_wipe "$@"' _
+    cat /opt/benchmark/redpanda | xargs -L 1 bash -c "redpanda_configure $1 \"\$@\"" _
     cat /opt/benchmark/redpanda | xargs -L 1 bash -c 'redpanda_start "$@"' _
     sleep 10s
     sudo bash -c 'echo "$(date) Redpanda is restarted" >> log'
@@ -45,7 +53,9 @@ function reset_all () {
 function retry-on-error () {
     args="$*"
     sudo bash -c "echo $(date) retry-on-error $args >> log"
-    reset_all
+    reset $1
+    shift
+    args="$*"
 
     attempt=0
     while (( attempt < 5)); do

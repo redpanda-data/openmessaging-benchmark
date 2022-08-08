@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -e
+
+rpk config set cluster_id 'test'
+rpk config set organization 'vectorized.io'
+rpk config set redpanda.advertised_kafka_api '{
+address: {{ hostvars[inventory_hostname].private_ip }},
+port: 9092
+}' --format yaml
+rpk config set redpanda.advertised_rpc_api '{
+address: {{ hostvars[inventory_hostname].private_ip }},
+port: 33145
+}' --format yaml
+rpk mode production
+
+{% if hostvars[groups['redpanda'][0]].id == hostvars[inventory_hostname].id %}
+sudo rpk config bootstrap \
+--id {{ groups['redpanda'].index(inventory_hostname) }} \
+--self {{ hostvars[inventory_hostname].private_ip }}
+{% else %}
+
+sudo rpk config bootstrap \
+--id {{ groups['redpanda'].index(inventory_hostname) }} \
+--self {{ hostvars[inventory_hostname].private_ip }} \
+--ips {{ hostvars[groups["redpanda"][0]].private_ip }}
+{% endif %}
