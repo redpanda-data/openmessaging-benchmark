@@ -28,6 +28,16 @@ function redpanda_configure () {
 function redpanda_start () {
     ssh -i ~/.ssh/redpanda_aws $1 sudo systemctl start redpanda
 }
+function redpanda_fetch () {
+    ssh -i ~/.ssh/redpanda_aws $2 sudo journalctl --rotate
+    ssh -i ~/.ssh/redpanda_aws $2 sudo bash -c "journalctl -u redpanda.service > /home/ubuntu/$2.log"
+    ssh -i ~/.ssh/redpanda_aws $2 sudo journalctl --vacuum-time=1s
+    ssh -i ~/.ssh/redpanda_aws $2 sudo sleep 2s
+    ssh -i ~/.ssh/redpanda_aws $2 sudo journalctl --vacuum-time=1w
+    ssh -i ~/.ssh/redpanda_aws $2 sudo chown ubuntu:ubuntu /home/ubuntu/$2.log
+    sudo mkdir -p $1
+    sudo scp -i ~/.ssh/redpanda_aws ubuntu@$2:/home/ubuntu/$2.log $1/$2.log
+}
 
 export -f worker_stop
 export -f worker_start
@@ -35,6 +45,7 @@ export -f redpanda_stop
 export -f redpanda_wipe
 export -f redpanda_configure
 export -f redpanda_start
+export -f redpanda_fetch
 
 function reset () {
     sudo bash -c 'echo "$(date) Restarting workload" >> log'
@@ -48,6 +59,11 @@ function reset () {
     sudo bash -c 'echo "$(date) Redpanda is restarted" >> log'
     cat /opt/benchmark/client | xargs -L 1 bash -c 'worker_start "$@"' _
     sudo bash -c 'echo "$(date) Workload is restarted" >> log'
+}
+
+function fetch-logs () {
+    cat /opt/benchmark/redpanda | xargs -L 1 bash -c 'redpanda_stop "$@"' _
+    cat /opt/benchmark/redpanda | xargs -L 1 bash -c "redpanda_fetch $1 \"\$@\"" _
 }
 
 function retry-on-error () {
