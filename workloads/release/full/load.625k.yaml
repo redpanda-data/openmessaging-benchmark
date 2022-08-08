@@ -29,4 +29,4 @@ producersPerTopic: 16
 producerRate: 625000
 consumerBacklogSizeGB: 0
 testDurationMinutes: 60
-warmupDurationMinutes: 5
+warmupDurationMinutes: 1

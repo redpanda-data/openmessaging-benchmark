@@ -44,6 +44,20 @@
         state: present
         update_cache: true
 
+- name: instll py deps
+  hosts: control
+  tasks:
+    - name: Install packages
+      package:
+        name: 
+          - python3-pip
+        state: present
+        update_cache: true
+    - name: install pip dependencies
+      shell: |
+        pip3 install sh
+        pip3 install requests
+
 - name: set facts about drives
   hosts: redpanda
   tasks:
@@ -134,6 +148,14 @@
         mode: "preserve"
         src: suites
         dest: /opt/benchmark/
+    - name: copy data balancing script
+      copy:
+        src: data_balancing/reconfiguration.py
+        dest: /opt/benchmark/reconfiguration.py
+    - name: copy data balancing script
+      copy:
+        src: data_balancing/kill.py
+        dest: /opt/benchmark/kill.py
     - name: Get list of driver config files
       raw: ls -1 /opt/benchmark/driver-redpanda/*.yaml
       register: drivers_list
@@ -195,14 +217,18 @@
         mode: 0600
     - name: add redpanda nodes to known hosts
       shell: |
+        mkdir -p /root/.ssh
         {% for host in groups['redpanda'] %}
         ssh-keyscan {{ hostvars[host].private_ip }} >> /home/ubuntu/.ssh/known_hosts
+        ssh-keyscan {{ hostvars[host].private_ip }} >> /root/.ssh/known_hosts
         echo "{{ hostvars[host].private_ip }}" >> /opt/benchmark/redpanda
         {% endfor %}
     - name: add client nodes to known hosts
       shell: |
+        mkdir -p /root/.ssh
         {% for host in groups['client'] %}
         ssh-keyscan {{ hostvars[host].private_ip }} >> /home/ubuntu/.ssh/known_hosts
+        ssh-keyscan {{ hostvars[host].private_ip }} >> /root/.ssh/known_hosts
         echo "{{ hostvars[host].private_ip }}" >> /opt/benchmark/client
         {% endfor %}
 
