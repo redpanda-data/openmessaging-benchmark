@@ -9,7 +9,7 @@ export PATH=$PATH:/opt/benchmark/bin
 sudo rm -rf footprint.tar.bz2
 sudo rm -rf *.json
 
-for i in 1 2 3 4; do
+for i in 1 2; do
     retry-on-error base sudo $OMB/bin/benchmark -o base-$i.json -t swarm -d $OMB/driver-redpanda/redpanda-ack-all-linger-1ms-eod-false.yaml $OMB/workloads/release/full/load.625k.yaml
     fetch-logs base-$i
 

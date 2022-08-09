@@ -239,6 +239,7 @@
       shell: |
         curl -1sLf 'https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.deb.sh' | sudo -E bash
         curl -1sLf 'https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh' | sudo -E bash
+        curl -1sLf 'https://packages.vectorized.io/0Flf0P3PmG08gQq0/redpanda-nightly/setup.deb.sh' | sudo -E bash
       args:
         warn: no
 
@@ -249,6 +250,21 @@
         name: unattended-upgrades
         enabled: no
         state: stopped
+
+- name: Configure journald
+  gather_facts: no
+  become: yes
+  hosts: all
+  tasks:
+  - name: change-config-file
+    lineinfile:
+      path: /etc/systemd/journald.conf
+      state: present
+      line: RateLimitBurst=0
+  - name: restart
+    systemd:
+       name: systemd-journald
+       state: restarted
 
 - name: Hosts addresses
   hosts: localhost

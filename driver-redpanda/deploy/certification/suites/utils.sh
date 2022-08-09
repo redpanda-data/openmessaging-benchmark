@@ -30,7 +30,7 @@ function redpanda_start () {
 }
 function redpanda_fetch () {
     ssh -i ~/.ssh/redpanda_aws $2 sudo journalctl --rotate
-    ssh -i ~/.ssh/redpanda_aws $2 sudo bash -c "journalctl -u redpanda.service > /home/ubuntu/$2.log"
+    ssh -i ~/.ssh/redpanda_aws $2 sudo bash -c "journalctl > /home/ubuntu/$2.log"
     ssh -i ~/.ssh/redpanda_aws $2 sudo journalctl --vacuum-time=1s
     ssh -i ~/.ssh/redpanda_aws $2 sudo sleep 2s
     ssh -i ~/.ssh/redpanda_aws $2 sudo journalctl --vacuum-time=1w

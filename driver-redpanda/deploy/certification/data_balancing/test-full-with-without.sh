@@ -18,8 +18,8 @@ sleep 1m
 echo "$(date) deploying" >> log
 ansible-playbook deploy.yaml
 
-echo "$(date) installing 22.2.1" >> log
-ansible-playbook redpanda.install.yaml --extra-vars "redpanda_version=22.2.1~rc1-1"
+echo "$(date) installing 0.0.0~20220809gitfbdafab-1" >> log
+ansible-playbook redpanda.install.yaml --extra-vars "redpanda_version=0.0.0~20220809gitfbdafab-1"
 ansible-playbook redpanda.pre.configure.autobalancing.yaml
 ansible-playbook redpanda.pre.configure.base.yaml
 # terraform destroy -auto-approve -var="username=$1"
