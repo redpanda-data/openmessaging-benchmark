@@ -27,7 +27,6 @@ for i in 1; do
         ansible-playbook redpanda.install.yaml --extra-vars "redpanda_version=$v~rc1-1"
         ansible-playbook redpanda.pre.configure.autobalancing.yaml
         ansible-playbook redpanda.pre.configure.base.yaml
-        exit 1
         echo "$(date) testing suite-full-load-all" >> log
         ansible-playbook test.yaml --extra-vars "suite=suite-full-load-all"
         echo "$(date) tested suite-full-load-all" >> log
