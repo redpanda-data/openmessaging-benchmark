@@ -7,9 +7,11 @@ profile         = "default"
 instance_types = {
   "redpanda"      = "i3en.6xlarge"
   "client"        = "c5n.9xlarge"
+  "prometheus"    = "c5.2xlarge"
 }
 
 num_instances = {
   "client"     = 2
   "redpanda"   = 5
+  "prometheus" = 1 
 }

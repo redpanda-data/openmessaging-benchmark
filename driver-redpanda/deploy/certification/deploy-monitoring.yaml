@@ -1,0 +1,71 @@
+
+# Install the monitoring stack
+- name: Install Node Exporter
+  hosts: redpanda, client
+  roles:
+  - cloudalchemy.node_exporter
+
+- name: create a local tmp directory
+  hosts: localhost
+  become: false
+  tasks:
+    - name: create a local temp directory
+      tempfile: 
+        state: directory
+        suffix: grafana
+      register: grafana_temp_dir
+    - name: register temp path with redpanda host
+      set_fact: 
+        grafana_dir: "{{ grafana_temp_dir.path }}"
+      delegate_to: "{{ groups['redpanda'][0] }}"
+      delegate_facts: True
+    - name: register temp path with prometheus host
+      set_fact: 
+        grafana_dir: "{{ grafana_temp_dir.path }}"
+      delegate_to: "{{ item }}"
+      delegate_facts: True 
+      with_items: "{{ groups['prometheus'] }}"
+
+- hosts: redpanda[0]
+  tasks:
+  - name: generate the redpanda grafana dashboard
+    shell: |
+      rpk generate grafana-dashboard --datasource prometheus --prometheus-url 'http://{{hostvars[inventory_hostname].private_ip}}:9644/metrics' > '/tmp/redpanda-grafana.json'
+  - name: fetch grafana dashboard
+    fetch:
+      src: /tmp/redpanda-grafana.json
+      dest: "{{ grafana_dir }}/"
+      flat: yes
+
+- hosts: prometheus
+  roles:
+  - cloudalchemy.prometheus
+  vars:
+    prometheus_scrape_configs:
+      - job_name: "redpanda"
+        static_configs:
+          - targets: "{{ groups['redpanda'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$','\\1:9644') | list  }}"
+      - job_name: "node"
+        static_configs:
+          - targets: "{{ groups['redpanda'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
+          - targets: "{{ groups['client'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$','\\1:9100') | list  }}"
+
+- hosts: prometheus
+  roles: 
+  - cloudalchemy.grafana
+  vars:
+    grafana_version: 6.7.3
+    grafana_security:
+      admin_user: admin
+      admin_password: enter_your_secure_password
+    grafana_datasources:
+    - name: prometheus
+      type: prometheus
+      access: proxy
+      url: 'http://localhost:9090'
+      basicAuth: false
+    grafana_dashboards_dir: '{{ grafana_dir }}'
+    grafana_dashboards:
+    - dashboard_id: 1860
+      revision_id: 21
+      datasource: prometheus

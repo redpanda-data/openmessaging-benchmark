@@ -175,6 +175,19 @@ resource "aws_instance" "client" {
   }
 }
 
+resource "aws_instance" "prometheus" {
+  ami                    = "${var.ami}"
+  instance_type          = "${var.instance_types["prometheus"]}"
+  key_name               = "${aws_key_pair.auth.id}"
+  subnet_id              = "${aws_subnet.benchmark_subnet.id}"
+  vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
+  count                  = "${var.num_instances["prometheus"]}"
+
+  tags = {
+    Name = "prometheus-${count.index}"
+  }
+}
+
 output "client_ssh_host" {
   value = "${aws_instance.client.0.public_ip}"
 }
@@ -186,6 +199,8 @@ resource "local_file" "hosts_ini" {
       redpanda_private_ips  = aws_instance.redpanda.*.private_ip
       clients_public_ips   = aws_instance.client.*.public_ip
       clients_private_ips  = aws_instance.client.*.private_ip
+      prometheus_host_public_ips   = aws_instance.prometheus.*.public_ip
+      prometheus_host_private_ips  = aws_instance.prometheus.*.private_ip
       control_public_ips   = aws_instance.client.*.public_ip
       control_private_ips  = aws_instance.client.*.private_ip
       ssh_user              = "ubuntu"

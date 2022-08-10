@@ -17,6 +17,7 @@ sleep 1m
 
 echo "$(date) deploying" >> log
 ansible-playbook deploy.yaml
+ansible-playbook deploy-monitoring.yaml
 
 echo "$(date) installing 0.0.0~20220809gitfbdafab-1" >> log
 ansible-playbook redpanda.install.yaml --extra-vars "redpanda_version=0.0.0~20220809gitfbdafab-1"
