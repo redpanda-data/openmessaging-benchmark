@@ -63,6 +63,9 @@ public class Benchmark {
 
         @Parameter(description = "Workloads", required = true)
         public List<String> workloads;
+
+        @Parameter(names = { "-o", "--output" }, description = "Output", required = false)
+        public String output;
     }
 
     public static void main(String[] args) throws Exception {
@@ -141,8 +144,9 @@ public class Benchmark {
 
                     TestResult result = generator.run();
 
-                    String fileName = String.format("%s-%s-%s.json", workloadName, driverConfiguration.name,
-                            dateFormat.format(new Date()));
+                    String fileName = arguments.output.length() > 0 ? arguments.output
+                            : String.format("%s-%s-%s.json", workloadName, driverConfiguration.name,
+                                    dateFormat.format(new Date()));
 
                     log.info("Writing test result into {}", fileName);
                     writer.writeValue(new File(fileName), result);

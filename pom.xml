@@ -87,6 +87,8 @@
 						<exclude>payload/**</exclude>
 						<exclude>**/*.pyc</exclude>
 						<exclude>**/.pydevproject</exclude>
+						<exclude>**/*.yml</exclude>
+						<exclude>**/*.j2</exclude>
 					</excludes>
 					<mapping>
 						<benchmark>SCRIPT_STYLE</benchmark>

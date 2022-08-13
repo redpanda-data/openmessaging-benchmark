@@ -19,6 +19,7 @@
 package io.openmessaging.benchmark.worker;
 
 import java.io.File;
+import java.net.HttpURLConnection;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -61,11 +62,16 @@ public class WorkerHandler {
         app.get("/cumulative-latencies", this::handleCumulativeLatencies);
         app.get("/counters-stats", this::handleCountersStats);
         app.post("/reset-stats", this::handleResetStats);
+
+        app.exception(RuntimeException.class, (e, ctx) -> {
+            log.error("Request handler: {} - Exception: {}", ctx.path(), e.getMessage());
+            ctx.status(HttpURLConnection.HTTP_INTERNAL_ERROR);
+        });
     }
 
     private void handleInitializeDriver(Context ctx) throws Exception {
         // Save config to temp file
-        File tempFile = File.createTempFile("driver-configuration", "conf");
+        File tempFile = File.createTempFile("driver-configuration" + System.currentTimeMillis(), "conf");
         Files.write(ctx.bodyAsBytes(), tempFile);
 
         localWorker.initializeDriver(tempFile);
