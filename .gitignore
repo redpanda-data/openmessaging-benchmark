@@ -9,11 +9,13 @@ target
 core/*.json
 *.retry
 *.pem
+*.hcl
 **/.terraform
 **/terraform.tfstate
 **/terraform.tfstate.backup
 **/*.lock.info
 .DS_Store
+.factorypath
 
 # IntelliJ artifacts
 .idea/

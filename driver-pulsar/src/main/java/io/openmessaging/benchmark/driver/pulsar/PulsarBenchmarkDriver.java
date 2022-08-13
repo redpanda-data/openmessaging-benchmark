@@ -1,44 +1,47 @@
 
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package io.openmessaging.benchmark.driver.pulsar;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import java.util.stream.Collectors;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminBuilder;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.admin.PulsarAdminException.ConflictException;
 import org.apache.pulsar.client.api.ClientBuilder;
+import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.ProducerBuilder;
 import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.SizeUnit;
 import org.apache.pulsar.client.api.SubscriptionType;
 import org.apache.pulsar.common.policies.data.BacklogQuota;
 import org.apache.pulsar.common.policies.data.BacklogQuota.RetentionPolicy;
 import org.apache.pulsar.common.policies.data.PersistencePolicies;
 import org.apache.pulsar.common.policies.data.TenantInfo;
+import org.apache.pulsar.common.util.FutureUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,6 +83,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
                 .serviceUrl(config.client.serviceUrl)
                 .maxConcurrentLookupRequests(50000)
                 .maxLookupRequests(100000)
+                .memoryLimit(config.client.clientMemoryLimitMB, SizeUnit.MEGA_BYTES)
                 .listenerThreads(Runtime.getRuntime().availableProcessors());
 
         if (config.client.serviceUrl.startsWith("pulsar+ssl")) {
@@ -108,10 +112,14 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
         log.info("Created Pulsar admin client for HTTP URL {}", config.client.httpUrl);
 
-        producerBuilder = client.newProducer().enableBatching(config.producer.batchingEnabled)
-                        .batchingMaxPublishDelay(config.producer.batchingMaxPublishDelayMs, TimeUnit.MILLISECONDS)
-                        .blockIfQueueFull(config.producer.blockIfQueueFull)
-                        .maxPendingMessages(config.producer.pendingQueueSize);
+        producerBuilder = client.newProducer()
+                .enableBatching(config.producer.batchingEnabled)
+                .batchingMaxPublishDelay(config.producer.batchingMaxPublishDelayMs, TimeUnit.MILLISECONDS)
+                .batchingMaxMessages(Integer.MAX_VALUE)
+                .batchingMaxBytes(config.producer.batchingMaxBytes)
+                .blockIfQueueFull(config.producer.blockIfQueueFull)
+                .sendTimeout(0, TimeUnit.MILLISECONDS)
+                .maxPendingMessages(config.producer.pendingQueueSize);
 
         try {
             // Create namespace and set the configuration
@@ -120,7 +128,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
             if (!adminClient.tenants().getTenants().contains(tenant)) {
                 try {
                     adminClient.tenants().createTenant(tenant,
-                                    new TenantInfo(Collections.emptySet(), Sets.newHashSet(cluster)));
+                                    TenantInfo.builder().adminRoles(Collections.emptySet()).allowedClusters(Sets.newHashSet(cluster)).build());
                 } catch (ConflictException e) {
                     // Ignore. This can happen when multiple workers are initializing at the same time
                 }
@@ -134,9 +142,13 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
             PersistenceConfiguration p = config.client.persistence;
             adminClient.namespaces().setPersistence(namespace,
                             new PersistencePolicies(p.ensembleSize, p.writeQuorum, p.ackQuorum, 1.0));
-
+            
             adminClient.namespaces().setBacklogQuota(namespace,
-                            new BacklogQuota(Long.MAX_VALUE, RetentionPolicy.producer_exception));
+                    BacklogQuota.builder()
+                            .limitSize(-1L)
+                            .limitTime(-1)
+                            .retentionPolicy(RetentionPolicy.producer_exception)
+                            .build());
             adminClient.namespaces().setDeduplicationStatus(namespace, p.deduplicationEnabled);
             log.info("Applied persistence configuration for namespace {}/{}/{}: {}", tenant, cluster, namespace,
                             writer.writeValueAsString(p));
@@ -164,19 +176,42 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     @Override
     public CompletableFuture<BenchmarkProducer> createProducer(String topic) {
         return producerBuilder.topic(topic).createAsync()
-                        .thenApply(pulsarProducer -> new PulsarBenchmarkProducer(pulsarProducer));
+                        .thenApply(PulsarBenchmarkProducer::new);
     }
 
     @Override
     public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
                     ConsumerCallback consumerCallback) {
-        return client.newConsumer().subscriptionType(SubscriptionType.Failover).messageListener((consumer, msg) -> {
-            consumerCallback.messageReceived(msg.getData(), msg.getPublishTime());
-            consumer.acknowledgeAsync(msg);
-        }).topic(topic).subscriptionName(subscriptionName).subscribeAsync()
-                        .thenApply(consumer -> new PulsarBenchmarkConsumer(consumer));
+        List<CompletableFuture<Consumer<ByteBuffer>>> futures = new ArrayList<>();
+        return client.getPartitionsForTopic(topic)
+                .thenCompose(partitions -> {
+                    partitions.forEach(p -> futures.add(createInternalConsumer(p, subscriptionName, consumerCallback)));
+                    return FutureUtil.waitForAll(futures);
+                }).thenApply(__ -> new PulsarBenchmarkConsumer(
+                                futures.stream().map(CompletableFuture::join).collect(Collectors.toList())
+                        )
+                );
+    }
 
-
+    CompletableFuture<Consumer<ByteBuffer>> createInternalConsumer(String topic, String subscriptionName,
+            ConsumerCallback consumerCallback) {
+        return client.newConsumer(Schema.BYTEBUFFER)
+                .priorityLevel(0)
+                .subscriptionType(SubscriptionType.Failover)
+                .messageListener((c, msg) -> {
+                    try {
+                        consumerCallback.messageReceived(msg.getValue(), msg.getPublishTime());
+                        c.acknowledgeAsync(msg);
+                    } finally {
+                        msg.release();
+                    }
+                })
+                .topic(topic)
+                .subscriptionName(subscriptionName)
+                .receiverQueueSize(config.consumer.receiverQueueSize)
+                .maxTotalReceiverQueueSizeAcrossPartitions(Integer.MAX_VALUE)
+                .poolMessages(true)
+                .subscribeAsync();
     }
 
     @Override

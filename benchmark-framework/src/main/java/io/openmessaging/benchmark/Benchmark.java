@@ -1,20 +1,15 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package io.openmessaging.benchmark;
 
@@ -46,11 +41,14 @@ public class Benchmark {
 
     static class Arguments {
 
+        @Parameter(names = {"-c", "--csv"}, description = "Print results from this directory to a csv file")
+        String resultsDir;
+
         @Parameter(names = { "-h", "--help" }, description = "Help message", help = true)
         boolean help;
 
         @Parameter(names = { "-d",
-                "--drivers" }, description = "Drivers list. eg.: pulsar/pulsar.yaml,kafka/kafka.yaml", required = true)
+                "--drivers" }, description = "Drivers list. eg.: pulsar/pulsar.yaml,kafka/kafka.yaml")//, required = true)
         public List<String> drivers;
 
         @Parameter(names = { "-w",
@@ -61,14 +59,17 @@ public class Benchmark {
                 "--workers-file" }, description = "Path to a YAML file containing the list of workers addresses")
         public File workersFile;
 
-        @Parameter(description = "Workloads", required = true)
+        @Parameter(names = { "-x", "--extra" }, description = "Allocate extra consumer workers when your backlog builds.")
+        boolean extraConsumers;
+
+        @Parameter(description = "Workloads")//, required = true)
         public List<String> workloads;
 
         @Parameter(names = { "-o", "--output" }, description = "Output", required = false)
         public String output;
 
-	@Parameter(names = { "-v", "--service-version" }, description = "Optional version of the service being benchmarked, embedded in the final result", required = false)
-	public String serviceVersion;
+        @Parameter(names = { "-v", "--service-version" }, description = "Optional version of the service being benchmarked, embedded in the final result", required = false)
+        public String serviceVersion;
     }
 
     public static void main(String[] args) throws Exception {
@@ -87,6 +88,12 @@ public class Benchmark {
         if (arguments.help) {
             jc.usage();
             System.exit(-1);
+        }
+
+        if(arguments.resultsDir != null) {
+            ResultsToCsv r = new ResultsToCsv();
+            r.writeAllResultFiles(arguments.resultsDir);
+            System.exit(0);
         }
 
         if (arguments.workers != null && arguments.workersFile != null) {
@@ -123,7 +130,7 @@ public class Benchmark {
         Worker worker;
 
         if (arguments.workers != null && !arguments.workers.isEmpty()) {
-            worker = new DistributedWorkersEnsemble(arguments.workers);
+            worker = new DistributedWorkersEnsemble(arguments.workers, arguments.extraConsumers);
         } else {
             // Use local worker implementation
             worker = new LocalWorker();
@@ -147,17 +154,14 @@ public class Benchmark {
                     WorkloadGenerator generator = new WorkloadGenerator(driverConfiguration.name, workload, worker);
 
                     TestResult result = generator.run();
-		    result.beginTime = beginTime;
-		    result.endTime = dateFormat.format(new Date());
-		    result.version = arguments.serviceVersion;
+                    result.beginTime = beginTime;
+                    result.endTime = dateFormat.format(new Date());
+                    result.version = arguments.serviceVersion;
 
-                    String fileName;
-                    if (arguments.output != null  && arguments.output.length() > 0) {
-                        fileName = arguments.output;
-                    } else {
-                        fileName = String.format("%s-%s-%s.json", workloadName, driverConfiguration.name,
-                                dateFormat.format(new Date()));
-                    }
+                    boolean useOutput = (arguments.output != null) && (arguments.output.length() > 0);
+
+                    String fileName = useOutput? arguments.output: String.format("%s-%s-%s.json", workloadName,
+                    driverConfiguration.name, dateFormat.format(new Date()));
 
                     log.info("Writing test result into {}", fileName);
                     writer.writeValue(new File(fileName), result);

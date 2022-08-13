@@ -1,20 +1,15 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package io.openmessaging.benchmark;
 
@@ -24,10 +19,12 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,13 +97,32 @@ public class WorkloadGenerator implements AutoCloseable {
         ProducerWorkAssignment producerWorkAssignment = new ProducerWorkAssignment();
         producerWorkAssignment.keyDistributorType = workload.keyDistributor;
         producerWorkAssignment.publishRate = targetPublishRate;
-        producerWorkAssignment.payloadData = payloadReader.load(workload.payloadFile);
+        producerWorkAssignment.payloadData = new ArrayList<>();
 
-        log.info("----- Starting warm-up traffic ------");
+        if(workload.useRandomizedPayloads) {
+            // create messages that are part random and part zeros
+            // better for testing effects of compression
+            Random r = new Random();
+            int randomBytes = (int)(workload.messageSize * workload.randomBytesRatio);
+            int zerodBytes = workload.messageSize - randomBytes;
+            for(int i = 0; i<workload.randomizedPayloadPoolSize; i++) {
+                byte[] randArray = new byte[randomBytes];
+                r.nextBytes(randArray);
+                byte[] zerodArray = new byte[zerodBytes];
+                byte[] combined = ArrayUtils.addAll(randArray, zerodArray);
+                producerWorkAssignment.payloadData.add(combined);
+            }
+        }
+        else {
+            producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
+        }
 
         worker.startLoad(producerWorkAssignment);
 
-        printAndCollectStats(workload.warmupDurationMinutes, TimeUnit.MINUTES);
+        if (workload.warmupDurationMinutes > 0) {
+            log.info("----- Starting warm-up traffic ({}m) ------", workload.warmupDurationMinutes);
+            printAndCollectStats(workload.warmupDurationMinutes, TimeUnit.MINUTES);
+        }
 
         if (workload.consumerBacklogSizeGB > 0) {
             executor.execute(() -> {
@@ -145,9 +161,11 @@ public class WorkloadGenerator implements AutoCloseable {
         // the data
         worker.probeProducers();
 
-        while (true) {
+	    long start = System.currentTimeMillis();
+        long end = start + 60 * 1000;
+        while (System.currentTimeMillis() < end) {
             CountersStats stats = worker.getCountersStats();
-
+	    
             if (stats.messagesReceived < expectedMessages) {
                 try {
                     Thread.sleep(100);
@@ -159,7 +177,12 @@ public class WorkloadGenerator implements AutoCloseable {
             }
         }
 
-        log.info("All consumers are ready");
+        if (System.currentTimeMillis() >= end) {
+            log.warn("Timed out waiting for consumers to be ready");
+        }
+        else {
+            log.info("All consumers are ready");
+        }        
     }
 
     /**
@@ -509,6 +532,7 @@ public class WorkloadGenerator implements AutoCloseable {
                 result.aggregatedEndToEndLatency9999pct = microsToMillis(
                         agg.endToEndLatency.getValueAtPercentile(99.99));
                 result.aggregatedEndToEndLatencyMax = microsToMillis(agg.endToEndLatency.getMaxValue());
+
                 result.aggregatedPublishDelayLatencyAvg = agg.publishDelayLatency.getMean();
                 result.aggregatedPublishDelayLatency50pct = agg.publishDelayLatency.getValueAtPercentile(50);
                 result.aggregatedPublishDelayLatency75pct = agg.publishDelayLatency.getValueAtPercentile(75);
@@ -521,6 +545,11 @@ public class WorkloadGenerator implements AutoCloseable {
                 agg.publishLatency.percentiles(100).forEach(value -> {
                     result.aggregatedPublishLatencyQuantiles.put(value.getPercentile(),
                             microsToMillis(value.getValueIteratedTo()));
+                });
+
+                agg.publishDelayLatency.percentiles(100).forEach(value -> {
+                    result.aggregatedPublishDelayLatencyQuantiles.put(value.getPercentile(),
+                            value.getValueIteratedTo());
                 });
 
                 agg.publishDelayLatency.percentiles(100).forEach(value -> {
