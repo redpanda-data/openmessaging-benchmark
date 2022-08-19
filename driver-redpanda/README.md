@@ -60,11 +60,11 @@ Then try running the ansible command again.
 3. Run a benchmark using a specific driver and workload, for example: 
 
 		 sudo bin/benchmark -d driver-redpanda/redpanda-ack-all-group-linger-10ms.yaml \
-			workloads/blog/1-topic-100-partitions-1kb-4-producers-500k-rate.yaml
+			driver-redpanda/deploy/workloads/1-topic-100-partitions-1kb-4-producers-500k-rate.yaml
 
 ## Cleanup
 
 Once you are done. Tear down the cluster with the following command: 
 
-	terraform destroy -force
+	terraform destroy -auto-approve
 
