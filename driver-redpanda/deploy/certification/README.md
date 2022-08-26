@@ -59,7 +59,7 @@
 
 3. Run a benchmark using a specific driver and workload, for example: 
 
-        sudo bin/benchmark -t swarm -d driver-redpanda/redpanda-ack-all-linger-1ms-eod-true.yaml workloads/release/full/load.400k.yaml
+        sudo bin/benchmark -t swarm -d driver-redpanda/redpanda-ack-all-linger-1ms-eod-true.yaml driver-redpanda/deploy/certification/workloads/smoke/load.400k.yaml
 
 ## Test another redpanda version
 

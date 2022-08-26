@@ -143,6 +143,11 @@
         src: ../../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
     - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+    - name: copy test suites
+      copy:
+        mode: "preserve"
+        src: suites
+        dest: /opt/benchmark/
     - name: Get list of driver config files
       raw: ls -1 /opt/benchmark/driver-redpanda/*.yaml
       register: drivers_list
