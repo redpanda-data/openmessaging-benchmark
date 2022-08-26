@@ -1,0 +1,8 @@
+- name: download test results
+  hosts: control
+  tasks:
+    - name: download
+      become_user: ubuntu
+      fetch:
+        src: /opt/benchmark/footprint.tar.bz2
+        dest: fetched
