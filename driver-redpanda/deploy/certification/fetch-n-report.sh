@@ -24,4 +24,4 @@ pushd $1
 tar xjf footprint.tar.bz2
 rm footprint.tar.bz2
 popd
-python3 ../../../bin/make_charts.py $1 $2
+python3 ../../../bin/gnuplot_charts.py $1 $2
