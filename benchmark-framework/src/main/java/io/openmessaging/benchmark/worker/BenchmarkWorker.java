@@ -64,24 +64,33 @@ public class BenchmarkWorker {
             System.exit(-1);
         }
 
-        Configuration conf = new CompositeConfiguration();
-        conf.setProperty(Stats.STATS_PROVIDER_CLASS, PrometheusMetricsProvider.class.getName());
-        conf.setProperty("prometheusStatsHttpPort", arguments.statsPort);
-        Stats.loadStatsProvider(conf);
-        StatsProvider provider = Stats.get();
-        provider.start(conf);
+        try {
 
-        Runtime.getRuntime().addShutdownHook(new Thread(
-            () -> provider.stop(),
-            "benchmark-worker-shutdown-thread"));
+            Configuration conf = new CompositeConfiguration();
+            conf.setProperty(Stats.STATS_PROVIDER_CLASS, PrometheusMetricsProvider.class.getName());
+            conf.setProperty("prometheusStatsHttpPort", arguments.statsPort);
+            Stats.loadStatsProvider(conf);
+            StatsProvider provider = Stats.get();
+            provider.start(conf);
 
-        // Dump configuration variables
-        log.info("Starting benchmark with config: {}", writer.writeValueAsString(arguments));
+            Runtime.getRuntime().addShutdownHook(new Thread(
+                () -> provider.stop(),
+                "benchmark-worker-shutdown-thread"));
 
-        // Start web server
-        Javalin app = Javalin.start(arguments.httpPort);
+            // Dump configuration variables
+            log.info("Starting benchmark with config: {}", writer.writeValueAsString(arguments));
 
-        new WorkerHandler(app, provider.getStatsLogger("benchmark"));
+            // Start web server
+            Javalin app = Javalin.start(arguments.httpPort);
+
+            new WorkerHandler(app, provider.getStatsLogger("benchmark"));
+        } catch (Exception e) {
+            String msg = "BenchmarkWorker terminating due to exception at startup.";
+            log.error(msg, e);
+            System.err.println(msg);
+            e.printStackTrace();
+            System.exit(-1);
+        }
     }
 
     private static final ObjectWriter writer = new ObjectMapper().writerWithDefaultPrettyPrinter();
