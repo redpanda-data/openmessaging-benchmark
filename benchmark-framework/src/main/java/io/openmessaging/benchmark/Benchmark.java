@@ -32,6 +32,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.common.base.Throwables;
 
 import io.openmessaging.benchmark.worker.DistributedWorkersEnsemble;
 import io.openmessaging.benchmark.worker.SwarmWorker;
@@ -159,6 +160,7 @@ public class Benchmark {
             worker = new LocalWorker();
         }
 
+        boolean success = false;
         try {
             workloads.forEach((workloadName, workload) -> {
                 arguments.drivers.forEach(driverConfig -> {
@@ -193,9 +195,8 @@ public class Benchmark {
                         generator.close();
                     } catch (Exception e) {
                         log.error("Failed to run the workload '{}' for driver '{}'", workload.name, driverConfig, e);
-                        // sometimes calling worker.stopAll hangs
-                        // using brute force to exit
-                        System.exit(1);
+                        Throwables.throwIfUnchecked(e);
+                        throw new RuntimeException(e);
                     } finally {
                         try {
                             worker.stopAll();
@@ -204,11 +205,17 @@ public class Benchmark {
                     }
                 });
             });
+            success = true;
+        } catch (Exception e) {
+            // we already caught & logged the exception above inside the forEach
+            // so we catch here so we can explicitly exit below
         } finally {
             worker.close();
         }
 
-
+        // We catch and eat exceptions thrown by benchmark runs above, but we would like the process
+        // to return a non-zero exit code on failure, for the benefit of the caller.
+        System.exit(success ? 0 : 1);
     }
 
     private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
