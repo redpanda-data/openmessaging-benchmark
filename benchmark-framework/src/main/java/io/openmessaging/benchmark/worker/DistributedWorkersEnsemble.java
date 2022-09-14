@@ -95,8 +95,14 @@ public class DistributedWorkersEnsemble implements Worker {
     @SuppressWarnings("unchecked")
     public List<String> createTopics(TopicsInfo topicsInfo) throws IOException {
         // Create all topics from a single worker node
-        return (List<String>) post(workers.get(0), "/create-topics", writer.writeValueAsBytes(topicsInfo), List.class)
-                .join();
+        try {
+            return (List<String>) post(workers.get(0), "/create-topics", writer.writeValueAsBytes(topicsInfo), List.class)
+                    .join();
+        } catch (Exception e) {
+            // Capture the stack trace on the current thread too since this exception likely
+            // originates on the netty request handling thread.
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
