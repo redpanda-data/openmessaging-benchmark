@@ -1,0 +1,270 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+- name: Install deps
+  hosts: all
+  connection: ssh
+  become: true
+  tasks:
+    - name: Remove sysstat
+      package:
+        name:
+          - sysstat
+        state: absent
+    - name: Install packages
+      package:
+        name: 
+          - mdadm
+          - xfsprogs
+          - iotop
+          - wget
+          - sysstat
+          - vim
+          - chrony
+          - git
+          - gcc
+          - tuned
+          - openjdk-11-jdk
+        state: present
+        update_cache: true
+
+- name: instll py deps
+  hosts: control
+  tasks:
+    - name: Install packages
+      package:
+        name: 
+          - python3-pip
+        state: present
+        update_cache: true
+    - name: install pip dependencies
+      shell: |
+        pip3 install sh
+        pip3 install requests
+
+- name: set facts about drives
+  hosts: redpanda
+  tasks:
+  - set_fact: 
+      device_info: "{{ hostvars[inventory_hostname].ansible_devices }}"
+      nvme_device_ids: "{{ hostvars[inventory_hostname].ansible_devices.keys() | map('regex_search', 'nvme.*') | select('string') | list }}" 
+  - set_fact: 
+      nvme_devices_for_raid: '{{ (nvme_devices_for_raid | default([])) + ["/dev/" + item] }}'
+    loop: '{{ nvme_device_ids }}'
+    when: device_info[item]["partitions"] | length == 0
+
+- name: Format raid drives if more then 2 drives
+  hosts: redpanda
+  tasks:
+  - block: 
+    - name: define mdadm_arrays variable
+      set_fact:
+        mdadm_arrays:
+        - name: md0
+          devices: '{{ nvme_devices_for_raid }}'
+          filesystem: xfs
+          level: 0
+          mountpoint: /mnt/vectorized
+          state: present
+    - name: run mdadm
+      include_role: 
+        name: mrlesmithjr.mdadm
+    when: nvme_devices_for_raid|length > 1
+
+
+- name: created a non raid disk
+  hosts: redpanda
+  tasks:
+    - block: 
+      - name: create xfs file system
+        filesystem: 
+          fstype: xfs
+          dev: '{{ nvme_devices_for_raid[0] }}'
+      - name: mount nvme device
+        mount:
+          path: /mnt/vectorized
+          src: '{{ nvme_devices_for_raid[0] }}'
+          fstype: xfs
+          state: mounted 
+      when: nvme_devices_for_raid|length == 1
+
+- name: configure the data path
+  hosts: redpanda
+  tasks: 
+  - name: data path
+    file:
+      path: /mnt/vectorized/redpanda
+      state: directory
+      owner: root
+      group: root
+      mode: ugo=rwx
+  - name: set premissions
+    file:
+      dest: /var/lib/redpanda
+      src: /mnt/vectorized/redpanda
+      state: link
+      owner: root
+      group: root
+      mode: ugo=rwx
+
+- name: Store server lists
+  hosts: all
+  connection: ssh
+  tags: client
+  tasks:
+    - set_fact:
+        bootstrapServers: "{{ groups['redpanda'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
+
+- name: Setup Benchmark client
+  hosts: client
+  connection: ssh
+  become: true
+  tags: client
+  tasks:
+    - file: path=/opt/benchmark state=absent
+    - name: Copy benchmark code
+      unarchive:
+        src: ../../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
+        dest: /opt
+    - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+    - name: copy test suites
+      copy:
+        mode: "preserve"
+        src: suites
+        dest: /opt/benchmark/
+    - name: Get list of driver config files
+      raw: ls -1 /opt/benchmark/driver-redpanda/*.yaml
+      register: drivers_list
+    - name: Configure URL
+      lineinfile:
+        dest: "{{ item }}"
+        regexp: "^  bootstrap.servers="
+        line: "  bootstrap.servers={{ bootstrapServers }}"
+      with_items: "{{ drivers_list.stdout_lines }}"
+    - name: Configure memory
+      lineinfile:
+        dest: /opt/benchmark/bin/benchmark-worker
+        regexp: "^JVM_MEM="
+        line: 'JVM_MEM="-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=10 -XX:+ParallelRefProcEnabled -XX:+UnlockExperimentalVMOptions -XX:+AggressiveOpts -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=32 -XX:ConcGCThreads=32 -XX:G1NewSizePercent=50 -XX:+DisableExplicitGC -XX:-ResizePLAB -XX:+PerfDisableSharedMem -XX:+AlwaysPreTouch -XX:-UseBiasedLocking"'
+    - name: Configure memory
+      lineinfile:
+        dest: /opt/benchmark/bin/benchmark
+        regexp: "^JVM_MEM="
+        line: 'JVM_MEM="-Xmx1G"'
+    - name: Setup JMX for Producer/Consumer clients
+      copy:
+        src: "../monitoring/jmx_exporter/jmx_prometheus_javaagent-0.13.0.jar"
+        dest: "/opt/benchmark/jmx_prometheus_javaagent-0.13.0.jar"
+    - name: Configure JMX for Prometheus (Client)
+      template:
+        src: "../monitoring/jmx_exporter/client.yml"
+        dest: "/opt/benchmark/metrics.yml"
+    - template:
+        src: "../templates/workers.yaml"
+        dest: "/opt/benchmark/workers.yaml"
+    - name: Install benchmark systemd service
+      template:
+        src: "../templates/benchmark-worker.service"
+        dest: "/etc/systemd/system/benchmark-worker.service"
+    - name: "Restart benchmark worker"
+      tags:
+        - configure
+      systemd:
+        state: restarted
+        daemon_reload: yes
+        name: "benchmark-worker"
+
+- name: upload ssh keys
+  hosts: control
+  tasks:
+    - name: check .ssh dir exists
+      file:
+        path: /home/ubuntu/.ssh
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: 0700
+    - name: copy keys
+      copy:
+        src: ~/.ssh/redpanda_aws
+        dest: /home/ubuntu/.ssh/redpanda_aws
+        owner: ubuntu
+        group: ubuntu
+        mode: 0600
+    - name: add redpanda nodes to known hosts
+      shell: |
+        mkdir -p /root/.ssh
+        {% for host in groups['redpanda'] %}
+        ssh-keyscan {{ hostvars[host].private_ip }} >> /home/ubuntu/.ssh/known_hosts
+        ssh-keyscan {{ hostvars[host].private_ip }} >> /root/.ssh/known_hosts
+        echo "{{ hostvars[host].private_ip }}" >> /opt/benchmark/redpanda
+        {% endfor %}
+    - name: add client nodes to known hosts
+      shell: |
+        mkdir -p /root/.ssh
+        {% for host in groups['client'] %}
+        ssh-keyscan {{ hostvars[host].private_ip }} >> /home/ubuntu/.ssh/known_hosts
+        ssh-keyscan {{ hostvars[host].private_ip }} >> /root/.ssh/known_hosts
+        echo "{{ hostvars[host].private_ip }}" >> /opt/benchmark/client
+        {% endfor %}
+
+- name: add redpanda repo
+  hosts: redpanda
+  tasks:
+    - name: add the repanda apt repo
+      shell: |
+        curl -1sLf 'https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.deb.sh' | sudo -E bash
+        curl -1sLf 'https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh' | sudo -E bash
+        curl -1sLf 'https://packages.vectorized.io/0Flf0P3PmG08gQq0/redpanda-nightly/setup.deb.sh' | sudo -E bash
+      args:
+        warn: no
+
+- name: disable unattended-upgrades
+  hosts: redpanda
+  tasks:
+    - systemd:
+        name: unattended-upgrades
+        enabled: no
+        state: stopped
+
+- name: Configure journald
+  gather_facts: no
+  become: yes
+  hosts: all
+  tasks:
+  - name: change-config-file
+    lineinfile:
+      path: /etc/systemd/journald.conf
+      state: present
+      line: RateLimitBurst=0
+  - name: restart
+    systemd:
+       name: systemd-journald
+       state: restarted
+
+- name: Hosts addresses
+  hosts: localhost
+  become: false
+  tasks:
+    - debug:
+        msg: Redpanda nodes {{ item }}"
+      with_items: "{{ groups['redpanda'] }}"
+    - debug:
+        msg: "Benchmark clients {{ item }}"
+      with_items: "{{ groups['client'] }}"

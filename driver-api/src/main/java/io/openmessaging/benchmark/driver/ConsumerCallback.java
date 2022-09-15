@@ -38,4 +38,8 @@ public interface ConsumerCallback {
      *            the publish timestamp in milliseconds
      */
     void messageReceived(ByteBuffer payload, long publishTimestamp);
+
+    void messageReceived(int payloadSize, long e2eLatencyNs);
+
+    void error();
 }

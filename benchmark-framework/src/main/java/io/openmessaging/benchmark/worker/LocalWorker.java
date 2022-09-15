@@ -77,6 +77,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final StatsLogger statsLogger;
 
     private final LongAdder messagesSent = new LongAdder();
+    private final LongAdder errors = new LongAdder();
+    private final LongAdder pollErrors = new LongAdder();
     private final LongAdder bytesSent = new LongAdder();
     private final Counter messagesSentCounter;
     private final Counter bytesSentCounter;
@@ -87,11 +89,16 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final Counter bytesReceivedCounter;
 
     private final LongAdder totalMessagesSent = new LongAdder();
+    private final LongAdder totalErrors = new LongAdder();
     private final LongAdder totalMessagesReceived = new LongAdder();
 
     private final Recorder publishLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
     private final Recorder cumulativePublishLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
     private final OpStatsLogger publishLatencyStats;
+
+    private final Recorder scheduleLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final Recorder cumulativeScheduleLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final OpStatsLogger scheduleLatencyStats;
 
     private final Recorder publishDelayLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
     private final Recorder cumulativePublishDelayLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
@@ -117,6 +124,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         this.bytesSentCounter = producerStatsLogger.getCounter("bytes_sent");
         this.publishDelayLatencyStats = producerStatsLogger.getOpStatsLogger("producer_delay_latency");
         this.publishLatencyStats = producerStatsLogger.getOpStatsLogger("produce_latency");
+        this.scheduleLatencyStats = producerStatsLogger.getOpStatsLogger("schedule_latency");
 
         StatsLogger consumerStatsLogger = statsLogger.scope("consumer");
         this.messagesReceivedCounter = consumerStatsLogger.getCounter("messages_recv");
@@ -205,7 +213,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
     @Override
     public void probeProducers() throws IOException {
-        producers.forEach(producer -> producer.sendAsync(Optional.of("key"), new byte[10])
+        producers.forEach(producer -> producer.sendAsync(Optional.of("key"), new byte[24])
                 .thenRun(() -> totalMessagesSent.increment()));
     }
 
@@ -222,7 +230,12 @@ public class LocalWorker implements Worker, ConsumerCallback {
                         final long intendedSendTime = rateLimiter.acquire();
                         uninterruptibleSleepNs(intendedSendTime);
                         final long sendTime = System.nanoTime();
-                        producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData).thenRun(() -> {
+                        CompletableFuture<Void> f = producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData);
+                        long scheduleMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
+                        scheduleLatencyRecorder.recordValue(scheduleMicros);
+                        cumulativeScheduleLatencyRecorder.recordValue(scheduleMicros);
+                        scheduleLatencyStats.registerSuccessfulEvent(scheduleMicros, TimeUnit.MICROSECONDS);
+                        f.thenRun(() -> {
                             messagesSent.increment();
                             totalMessagesSent.increment();
                             messagesSentCounter.inc();
@@ -239,6 +252,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
                             cumulativePublishDelayLatencyRecorder.recordValue(sendDelayMicros);
                             publishDelayLatencyStats.registerSuccessfulEvent(sendDelayMicros, TimeUnit.MICROSECONDS);
                         }).exceptionally(ex -> {
+                            errors.increment();
+                            totalErrors.increment();
                             log.warn("Write error on message", ex);
                             return null;
                         });
@@ -265,14 +280,18 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
         stats.messagesSent = messagesSent.sumThenReset();
         stats.bytesSent = bytesSent.sumThenReset();
+        stats.errors = errors.sumThenReset();
+        stats.pollErrors = pollErrors.sumThenReset();
 
         stats.messagesReceived = messagesReceived.sumThenReset();
         stats.bytesReceived = bytesReceived.sumThenReset();
 
         stats.totalMessagesSent = totalMessagesSent.sum();
+        stats.totalErrors = totalErrors.sum();
         stats.totalMessagesReceived = totalMessagesReceived.sum();
 
         stats.publishLatency = publishLatencyRecorder.getIntervalHistogram();
+        stats.scheduleLatency = scheduleLatencyRecorder.getIntervalHistogram();
         stats.publishDelayLatency = publishDelayLatencyRecorder.getIntervalHistogram();
         stats.endToEndLatency = endToEndLatencyRecorder.getIntervalHistogram();
         return stats;
@@ -282,6 +301,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
     public CumulativeLatencies getCumulativeLatencies() {
         CumulativeLatencies latencies = new CumulativeLatencies();
         latencies.publishLatency = cumulativePublishLatencyRecorder.getIntervalHistogram();
+        latencies.scheduleLatency = cumulativeScheduleLatencyRecorder.getIntervalHistogram();
         latencies.publishDelayLatency = cumulativePublishDelayLatencyRecorder.getIntervalHistogram();
         latencies.endToEndLatency = endToEndCumulativeLatencyRecorder.getIntervalHistogram();
         return latencies;
@@ -293,6 +313,11 @@ public class LocalWorker implements Worker, ConsumerCallback {
         stats.messagesSent = totalMessagesSent.sum();
         stats.messagesReceived = totalMessagesReceived.sum();
         return stats;
+    }
+
+    @Override
+    public void error() {
+        pollErrors.increment();
     }
 
     @Override
@@ -333,6 +358,35 @@ public class LocalWorker implements Worker, ConsumerCallback {
     }
 
     @Override
+    public void messageReceived(int payloadSize, long e2eLatencyNs) {
+        if (e2eLatencyNs < 0) {
+            error();
+            return;
+        }
+        
+        messagesReceived.increment();
+        totalMessagesReceived.increment();
+        messagesReceivedCounter.inc();
+        bytesReceived.add(payloadSize);
+        bytesReceivedCounter.add(payloadSize);
+
+
+        long endToEndLatencyMicros = TimeUnit.NANOSECONDS.toMicros(e2eLatencyNs);
+        
+        endToEndCumulativeLatencyRecorder.recordValue(endToEndLatencyMicros);
+        endToEndLatencyRecorder.recordValue(endToEndLatencyMicros);
+        endToEndLatencyStats.registerSuccessfulEvent(endToEndLatencyMicros, TimeUnit.MICROSECONDS);
+
+        while (consumersArePaused) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
     public void pauseConsumers() throws IOException {
         consumersArePaused = true;
         log.info("Pausing consumers");
@@ -347,6 +401,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
     @Override
     public void resetStats() throws IOException {
         publishLatencyRecorder.reset();
+        scheduleLatencyRecorder.reset();
+        cumulativeScheduleLatencyRecorder.reset();
         cumulativePublishLatencyRecorder.reset();
         publishDelayLatencyRecorder.reset();
         cumulativePublishDelayLatencyRecorder.reset();
@@ -360,6 +416,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
         consumersArePaused = false;
 
         publishLatencyRecorder.reset();
+        scheduleLatencyRecorder.reset();
+        cumulativeScheduleLatencyRecorder.reset();
         cumulativePublishLatencyRecorder.reset();
         publishDelayLatencyRecorder.reset();
         cumulativePublishDelayLatencyRecorder.reset();

@@ -402,10 +402,11 @@ public class WorkloadGenerator implements AutoCloseable {
         result.messageSize = workload.messageSize;
         result.producersPerTopic = workload.producersPerTopic;
         result.consumersPerTopic = workload.consumerPerSubscription;
+        result.sampleRateMillis = workload.sampleRateMillis;
 
         while (true) {
             try {
-                Thread.sleep(10000);
+                Thread.sleep(workload.sampleRateMillis);
             } catch (InterruptedException e) {
                 break;
             }
@@ -447,10 +448,16 @@ public class WorkloadGenerator implements AutoCloseable {
                     dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.9))),
                     throughputFormat.format(microsToMillis(stats.endToEndLatency.getMaxValue())));
 
+            result.sent.add(stats.messagesSent);
+            result.consumed.add(stats.messagesReceived);
+            result.publishFailed.add(stats.errors);
+            result.consumeFailed.add(stats.pollErrors);
+
             result.publishRate.add(publishRate);
             result.consumeRate.add(consumeRate);
             result.backlog.add(currentBacklog);
             result.publishLatencyAvg.add(microsToMillis(stats.publishLatency.getMean()));
+            result.publishLatencyMin.add(microsToMillis(stats.publishLatency.getMinValue()));
             result.publishLatency50pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(50)));
             result.publishLatency75pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(75)));
             result.publishLatency95pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(95)));
@@ -458,6 +465,12 @@ public class WorkloadGenerator implements AutoCloseable {
             result.publishLatency999pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9)));
             result.publishLatency9999pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99.99)));
             result.publishLatencyMax.add(microsToMillis(stats.publishLatency.getMaxValue()));
+
+            result.scheduleLatencyMin.add(microsToMillis(stats.scheduleLatency.getMinValue()));
+            result.scheduleLatency50pct.add(microsToMillis(stats.scheduleLatency.getValueAtPercentile(50)));
+            result.scheduleLatency75pct.add(microsToMillis(stats.scheduleLatency.getValueAtPercentile(75)));
+            result.scheduleLatency99pct.add(microsToMillis(stats.scheduleLatency.getValueAtPercentile(99)));
+            result.scheduleLatencyMax.add(microsToMillis(stats.scheduleLatency.getMaxValue()));
 
             result.publishDelayLatencyAvg.add(stats.publishDelayLatency.getMean());
             result.publishDelayLatency50pct.add(stats.publishDelayLatency.getValueAtPercentile(50));
@@ -468,8 +481,8 @@ public class WorkloadGenerator implements AutoCloseable {
             result.publishDelayLatency9999pct.add(stats.publishDelayLatency.getValueAtPercentile(99.99));
             result.publishDelayLatencyMax.add(stats.publishDelayLatency.getMaxValue());
 
-
             result.endToEndLatencyAvg.add(microsToMillis(stats.endToEndLatency.getMean()));
+            result.endToEndLatencyMin.add(microsToMillis(stats.endToEndLatency.getMinValue()));
             result.endToEndLatency50pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50)));
             result.endToEndLatency75pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(75)));
             result.endToEndLatency95pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(95)));
@@ -544,6 +557,11 @@ public class WorkloadGenerator implements AutoCloseable {
 
                 agg.publishLatency.percentiles(100).forEach(value -> {
                     result.aggregatedPublishLatencyQuantiles.put(value.getPercentile(),
+                            microsToMillis(value.getValueIteratedTo()));
+                });
+
+                agg.scheduleLatency.percentiles(100).forEach(value -> {
+                    result.aggregatedScheduleLatencyQuantiles.put(value.getPercentile(),
                             microsToMillis(value.getValueIteratedTo()));
                 });
 

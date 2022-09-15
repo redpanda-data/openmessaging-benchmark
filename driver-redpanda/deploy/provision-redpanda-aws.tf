@@ -176,28 +176,23 @@ resource "aws_instance" "prometheus" {
   }
 }
 
-output "clients" {
-  value = {
-    for instance in aws_instance.client :
-    instance.public_ip => instance.private_ip
-  }
-}
-
-output "redpanda" {
-  value = {
-    for instance in aws_instance.redpanda :
-    instance.public_ip => instance.private_ip
-  }
-}
-
-output "prometheus_host" {
-  value = {
-		for instance in aws_instance.prometheus :
-		instance.public_ip => instance.private_ip
-	}
-}
-
 output "client_ssh_host" {
   value = "${aws_instance.client.0.public_ip}"
 }
 
+resource "local_file" "hosts_ini" {
+  content = templatefile("${path.module}/hosts_ini.tpl",
+    {
+      redpanda_public_ips   = aws_instance.redpanda.*.public_ip
+      redpanda_private_ips  = aws_instance.redpanda.*.private_ip
+      clients_public_ips   = aws_instance.client.*.public_ip
+      clients_private_ips  = aws_instance.client.*.private_ip
+      prometheus_host_public_ips   = aws_instance.prometheus.*.public_ip
+      prometheus_host_private_ips  = aws_instance.prometheus.*.private_ip
+      control_public_ips   = aws_instance.client.*.public_ip
+      control_private_ips  = aws_instance.client.*.private_ip
+      ssh_user              = "ubuntu"
+    }
+  )
+  filename = "${path.module}/hosts.ini"
+}

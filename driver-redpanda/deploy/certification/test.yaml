@@ -1,0 +1,9 @@
+- name: run perf tests
+  hosts: control
+  tasks:
+    - become_user: ubuntu
+      shell: |
+        cd /opt/benchmark
+        /opt/benchmark/suites/{{ suite }}.sh
+      async: 72000
+      poll: 10

@@ -206,16 +206,21 @@ public class DistributedWorkersEnsemble implements Worker {
         List<PeriodStats> individualStats = get(workers, "/period-stats", PeriodStats.class);
         PeriodStats stats = new PeriodStats();
         individualStats.forEach(is -> {
+            stats.errors += is.errors;
             stats.messagesSent += is.messagesSent;
             stats.bytesSent += is.bytesSent;
             stats.messagesReceived += is.messagesReceived;
             stats.bytesReceived += is.bytesReceived;
             stats.totalMessagesSent += is.totalMessagesSent;
             stats.totalMessagesReceived += is.totalMessagesReceived;
+            stats.totalErrors += is.totalErrors;
 
             try {
                 stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
+                
+                stats.scheduleLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                    ByteBuffer.wrap(is.scheduleLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
 
                 stats.publishDelayLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.publishDelayLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
@@ -241,6 +246,14 @@ public class DistributedWorkersEnsemble implements Worker {
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
             } catch (Exception e) {
                 log.error("Failed to decode publish latency");
+                throw new RuntimeException(e);
+            }
+
+            try {
+                stats.scheduleLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                    ByteBuffer.wrap(is.scheduleLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
+            } catch (Exception e) {
+                log.error("Failed to decode schedule latency");
                 throw new RuntimeException(e);
             }
 

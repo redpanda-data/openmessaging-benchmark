@@ -29,11 +29,25 @@ public class TestResult {
     public int partitions;
     public int producersPerTopic;
     public int consumersPerTopic;
+    public int sampleRateMillis;
+
+    public List<Long> sent = new ArrayList<>();
+    public List<Long> consumed = new ArrayList<>();
+    public List<Long> publishFailed = new ArrayList<>();
+    public List<Long> consumeFailed = new ArrayList<>();
 
     public List<Double> publishRate = new ArrayList<>();
     public List<Double> consumeRate = new ArrayList<>();
     public List<Long> backlog = new ArrayList<>();
 
+    public List<Double> scheduleLatencyMin = new ArrayList<>();
+    public List<Double> scheduleLatency50pct = new ArrayList<>();
+    public List<Double> scheduleLatency75pct = new ArrayList<>();
+    public List<Double> scheduleLatency99pct = new ArrayList<>();
+    public List<Double> scheduleLatencyMax = new ArrayList<>();
+    public Map<Double, Double> aggregatedScheduleLatencyQuantiles = new TreeMap<>();
+
+    public List<Double> publishLatencyMin = new ArrayList<>();
     public List<Double> publishLatencyAvg = new ArrayList<>();
     public List<Double> publishLatency50pct = new ArrayList<>();
     public List<Double> publishLatency75pct = new ArrayList<>();
@@ -77,6 +91,7 @@ public class TestResult {
     // End to end latencies (from producer to consumer)
     // Latencies are expressed in milliseconds (without decimals)
 
+    public List<Double> endToEndLatencyMin = new ArrayList<>();
     public List<Double> endToEndLatencyAvg = new ArrayList<>();
     public List<Double> endToEndLatency50pct = new ArrayList<>();
     public List<Double> endToEndLatency75pct = new ArrayList<>();

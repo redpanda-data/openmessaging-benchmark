@@ -22,11 +22,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class PeriodStats {
     public long messagesSent = 0;
     public long bytesSent = 0;
+    public long errors = 0;
+    public long pollErrors = 0;
 
     public long messagesReceived = 0;
     public long bytesReceived = 0;
 
     public long totalMessagesSent = 0;
+    public long totalErrors = 0;
     public long totalMessagesReceived = 0;
 
     @JsonIgnore
@@ -37,8 +40,11 @@ public class PeriodStats {
     public Histogram publishDelayLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
     public byte[] publishDelayLatencyBytes;
 
-
     @JsonIgnore
     public Histogram endToEndLatency = new Histogram(TimeUnit.HOURS.toMicros(12), 5);
     public byte[] endToEndLatencyBytes;
+
+    @JsonIgnore
+    public Histogram scheduleLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
+    public byte[] scheduleLatencyBytes;
 }
