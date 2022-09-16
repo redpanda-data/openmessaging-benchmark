@@ -40,6 +40,36 @@
         sudo bin/benchmark -d driver-redpanda/redpanda-ack-all-group-linger-10ms.yaml \
             driver-redpanda/deploy/workloads/1-topic-100-partitions-1kb-4-producers-500k-rate.yaml
 
+## Generating charts
+
+Once you have ran a benchmark, a json file will be generated in the data directory. You can use `bin/generate_charts.py` to generate a a visual representation of this data.
+
+First install the python script's prerequisites:
+
+```bash
+python3 -m pip install numpy jinja2 pygal
+```
+
+The script has a few flags to say where the benchmark output file is, where the output will be stored, etc. Run the script with the help flag for more details (from the project's root directory):
+
+```bash
+./bin/generate_charts.py -h
+```
+
+You will need to create an output folder (named `output` here):
+
+```bash
+mkdir output
+```
+
+Then run the script. The following example looks for benchmark files in `bin/data` and sends output to the folder created above:
+
+```bash
+./bin/generate_charts.py --results ./bin/data --output ./output
+```
+
+The output of this command is web page with charts for throughput, publish latency, end-to-end latency, publish rate, and consume rate (open in your favorite browser).
+
 ## Cleanup
 
 Once you are done. Tear down the cluster with the following command: 
