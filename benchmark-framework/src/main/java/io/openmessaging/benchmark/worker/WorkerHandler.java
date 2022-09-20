@@ -60,6 +60,7 @@ public class WorkerHandler {
 
         app.exception(RuntimeException.class, (e, ctx) -> {
             log.error("Request handler: {} - Exception: {}", ctx.path(), e.getMessage());
+            log.error("Details", e);
             ctx.status(HttpURLConnection.HTTP_INTERNAL_ERROR);
         });
     }
