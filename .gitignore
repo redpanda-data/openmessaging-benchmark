@@ -21,6 +21,9 @@ core/*.json
 .idea/
 *.iml
 
+# python virtual enviroments
+.venv
+
 driver-redpanda/deploy/.terraform.lock.hcl
 driver-redpanda/deploy/hosts.ini
 driver-redpanda/deploy/certification/.terraform.lock.hcl
