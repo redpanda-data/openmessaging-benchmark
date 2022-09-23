@@ -46,7 +46,7 @@ public class BenchmarkWorker {
         public int statsPort = 8081;
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         final Arguments arguments = new Arguments();
         JCommander jc = new JCommander(arguments);
         jc.setProgramName("benchmark-worker");
