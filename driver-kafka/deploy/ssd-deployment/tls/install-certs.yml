@@ -1,0 +1,51 @@
+- hosts: kafka
+  tasks:
+  - name: Copy CA Certs
+    copy:
+      src: ca/ca.crt
+      dest: /etc/kafka/certs/truststore.pem
+      mode: 0755
+
+  - name: Copy Node Certs
+    copy:
+      src: certs/{{ansible_hostname}}/node.crt
+      dest: /etc/kafka/certs/node.crt
+      mode: 0755
+
+  - name: Create keystore
+    ansible.builtin.shell:
+      chdir: /etc/kafka/certs
+      cmd: "openssl pkcs8 -topk8 -in node.key -inform pem -v1 PBE-SHA1-RC4-128 -out keystore.pem -passout pass:"
+
+  - name: Create keystore
+    ansible.builtin.shell:
+      chdir: /etc/kafka/certs
+      cmd: "cat node.crt >> keystore.pem"
+
+- hosts: client
+  tasks:
+    - name: Copy CA Certs
+      copy:
+        src: ca/ca.crt
+        dest: /etc/ssl/certs/kafka.pem
+        mode: 0755
+
+    - name: Set keystore path
+      when: ansible_os_family == 'RedHat'
+      set_fact:
+        keystore_path: /etc/pki/ca-trust/extracted/java/cacerts
+
+    - name: Set keystore path
+      when: ansible_os_family == 'Debian'
+      set_fact:
+        keystore_path: /etc/ssl/certs/java/cacerts
+
+    - name: Install into Java truststore
+      java_cert:
+        executable: "/usr/bin/keytool"
+        cert_alias: "kafka"
+        cert_path: "/etc/ssl/certs/kafka.pem"
+        keystore_path: "{{ keystore_path }}"
+        keystore_pass: "changeit"
+        keystore_type: JKS
+        state: present
