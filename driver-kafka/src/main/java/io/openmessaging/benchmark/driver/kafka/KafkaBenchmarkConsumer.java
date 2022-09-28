@@ -20,6 +20,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -42,7 +43,6 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
     private final ExecutorService executor;
     private final Future<?> consumerTask;
     private volatile boolean closing = false;
-    private boolean autoCommit;
 
     public KafkaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer,
                                   Properties consumerConfig,
@@ -56,25 +56,33 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
                                   long pollTimeoutMs) {
         this.consumer = consumer;
         this.executor = Executors.newSingleThreadExecutor();
-        this.autoCommit= Boolean.valueOf((String)consumerConfig.getOrDefault(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,"false"));
+
         this.consumerTask = this.executor.submit(() -> {
+            long lastOffsetNanos = System.nanoTime();
+            Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
             while (!closing) {
                 try {
                     ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(pollTimeoutMs));
 
-                    Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
                     for (ConsumerRecord<String, byte[]> record : records) {
-                        callback.messageReceived(record.value(), record.timestamp());
+                        callback.messageReceived(record.value(), TimeUnit.MILLISECONDS.toNanos(record.timestamp()));
 
                         offsetMap.put(new TopicPartition(record.topic(), record.partition()),
                             new OffsetAndMetadata(record.offset()+1));
                     }
 
-                    if (!autoCommit&&!offsetMap.isEmpty()) {
+                    long now = System.nanoTime();
+                    long timeSinceOffsetCommit = now - lastOffsetNanos;
+                    if (!offsetMap.isEmpty() && timeSinceOffsetCommit > TimeUnit.SECONDS.toNanos(5)) {
+                        log.info("msec since last offset commit: {}", (now - lastOffsetNanos) / 1000 / 1000);
+                        lastOffsetNanos = now;
                         // Async commit all messages polled so far
                         consumer.commitAsync(offsetMap, null);
+                        offsetMap.clear();
                     }
-                } catch(Exception e){
+                }
+                catch(Exception e){
+                    callback.error();
                     log.error("exception occur while consuming message", e);
                 }
             }
