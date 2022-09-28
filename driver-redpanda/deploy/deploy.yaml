@@ -133,22 +133,36 @@
 - name: install redpanda
   hosts: redpanda
   tasks:
-    - name: add the redpanda yum repo
-      when: ansible_os_family == 'RedHat'
+    - set_fact:
+        setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh
+      when:
+        - channel | default('stable') == 'stable'
+        -  ansible_os_family == 'Debian'
+    - set_fact:
+        setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.rpm.sh
+      when:
+        - channel | default('stable') == 'stable'
+        -  ansible_os_family == 'RedHat'
+    - set_fact:
+        setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.deb.sh
+      when:
+        - channel | default('stable') == 'unstable'
+        -  ansible_os_family == 'Debian'
+    - set_fact:
+        setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.rpm.sh
+      when:
+        - channel | default('stable') == 'unstable'
+        -  ansible_os_family == 'RedHat'
+
+    - name: add the redpanda repo
       shell: |
-        curl -1sLf 'https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.rpm.sh' | sudo -E bash
-      args: 
-        warn: no 
-    - name: add the repanda apt repo
-      when: ansible_os_family == 'Debian'
-      shell: |
-        curl -1sLf 'https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh' | sudo -E bash
+        curl -1sLf {{ setup_repo }} | sudo -E bash
       args:
         warn: no
     - name: install redpanda
-      package: 
-        name: 
-          - redpanda
+      package:
+        name:
+          - "{{ redpanda_package | default('redpanda')}}"
         state: present
         update_cache: yes
     - name: set data dir file perms
@@ -245,7 +259,9 @@
   tags: chrony
 
 - name: SASL facts
-  tags: sasl
+  tags:
+    - sasl
+    - client
   hosts: all
   tasks:
     - set_fact:
@@ -317,12 +333,13 @@
       lineinfile:
         dest: /opt/benchmark/bin/benchmark-worker
         regexp: "^JVM_MEM="
-        line: 'JVM_MEM="-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=10 -XX:+ParallelRefProcEnabled -XX:+UnlockExperimentalVMOptions -XX:+AggressiveOpts -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=32 -XX:ConcGCThreads=32 -XX:G1NewSizePercent=50 -XX:+DisableExplicitGC -XX:-ResizePLAB -XX:+PerfDisableSharedMem -XX:+AlwaysPreTouch -XX:-UseBiasedLocking"'
+        line: 'JVM_MEM="-Xms100G -Xmx100G -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ParallelRefProcEnabled -XX:+Ag
+        gressiveOpts -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=12 -XX:ConcGCThreads=12 -XX:+DisableExplicitGC -XX:-ResizePLAB"'
     - name: Configure memory
       lineinfile:
         dest: /opt/benchmark/bin/benchmark
         regexp: "^JVM_MEM="
-        line: 'JVM_MEM="-Xmx1G"'
+        line: 'JVM_MEM="-Xmx4G"'
     - name: Setup JMX for Producer/Consumer clients
       copy:
         src: "monitoring/jmx_exporter/jmx_prometheus_javaagent-0.13.0.jar"
@@ -480,16 +497,9 @@
   - name: Configure SASL for rpk
     shell:
       cmd: |
-        rpk redpanda config set 'rpk.admin_api' "
-            sasl:
-              user: admin
-              password: admin
-              type: SCRAM-SHA-256
-        " --format yaml
-        rpk redpanda config set 'rpk.kafka_api' "
-            sasl:
-              user: admin
-              password: admin
+        rpk redpanda config set 'rpk.kafka_api.sasl' "
+              user: {{ sasl_username }}
+              password: {{ sasl_password }}
               type: SCRAM-SHA-256
         " --format yaml
     when: sasl_enabled| default(False)|bool == True
