@@ -248,10 +248,18 @@
   connection: ssh
   become: true
   tasks:
+    - name: Set chrony path
+      when: ansible_os_family == 'RedHat'
+      set_fact:
+        chrony_path: /etc/chrony.conf
+    - name: Set chrony path
+      when: ansible_os_family == 'Debian'
+      set_fact:
+        chrony: /etc/chrony/chrony.conf
     - name: Set up chronyd
       template:
         src: "templates/chrony.conf"
-        dest: "/etc/chrony/chrony.conf"
+        dest: "{{ chrony_path }}"
     - systemd:
         state: restarted
         daemon_reload: yes
