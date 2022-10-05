@@ -1,3 +1,4 @@
 numpy
 jinja2
 pygal
+cairosvg
