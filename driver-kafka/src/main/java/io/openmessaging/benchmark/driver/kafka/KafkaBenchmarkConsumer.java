@@ -22,11 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.common.TopicPartition;
 
 import io.openmessaging.benchmark.driver.BenchmarkConsumer;
@@ -34,7 +30,7 @@ import io.openmessaging.benchmark.driver.ConsumerCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
+public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCallback {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaBenchmarkConsumer.class);
 
@@ -43,6 +39,12 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
     private final ExecutorService executor;
     private final Future<?> consumerTask;
     private volatile boolean closing = false;
+
+    private long timeSinceOffsetCommitCallback = 0;
+    private long offsetCommitLingerMs;
+    private boolean autoCommit;
+
+    private final String OFFSET_COMMIT_CONFIG = "offsetCommitLingerMs";
 
     public KafkaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer,
                                   Properties consumerConfig,
@@ -56,6 +58,9 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
                                   long pollTimeoutMs) {
         this.consumer = consumer;
         this.executor = Executors.newSingleThreadExecutor();
+
+        this.offsetCommitLingerMs = Long.valueOf((String)consumerConfig.getOrDefault(OFFSET_COMMIT_CONFIG, "0"));
+        this.autoCommit = Boolean.valueOf((String)consumerConfig.getOrDefault(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,"false"));
 
         this.consumerTask = this.executor.submit(() -> {
             long lastOffsetNanos = System.nanoTime();
@@ -71,14 +76,23 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
                             new OffsetAndMetadata(record.offset()+1));
                     }
 
-                    long now = System.nanoTime();
-                    long timeSinceOffsetCommit = now - lastOffsetNanos;
-                    if (!offsetMap.isEmpty() && timeSinceOffsetCommit > TimeUnit.SECONDS.toNanos(5)) {
-                        log.info("msec since last offset commit: {}", (now - lastOffsetNanos) / 1000 / 1000);
-                        lastOffsetNanos = now;
+                    /* We're only going to submit an async commit request if:
+                        - autoCommit is disabled AND
+                        - there are offsets to commit AND
+                            - offsetCommitLingerMs is zero (the default, so no waiting for async callbacks at all) OR
+                            - we've waited lingerMs milliseconds since the last callback completed (+ve or -ve)
+                     */
+                    long now = System.currentTimeMillis();
+                    long timeSinceOffsetCommitComplete = now - timeSinceOffsetCommitCallback;
+                    if (!autoCommit && !offsetMap.isEmpty() &&
+                            (offsetCommitLingerMs == 0  || timeSinceOffsetCommitComplete >= offsetCommitLingerMs)) {
+                        log.debug("msec since last offset commit complete: {}", timeSinceOffsetCommitComplete);
                         // Async commit all messages polled so far
-                        consumer.commitAsync(offsetMap, null);
+                        consumer.commitAsync(offsetMap, this);
                         offsetMap.clear();
+                        // We set timeSinceOffsetCommitCallback to max value to ensure that
+                        // (now - timeSinceOffsetCommitCallback) is not positive until we next get a callback
+                        timeSinceOffsetCommitCallback = Long.MAX_VALUE;
                     }
                 }
                 catch(Exception e){
@@ -97,4 +111,8 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
         consumer.close();
     }
 
+    @Override
+    public void onComplete(Map<TopicPartition, OffsetAndMetadata> map, Exception e) {
+        timeSinceOffsetCommitCallback = System.currentTimeMillis();
+    }
 }
