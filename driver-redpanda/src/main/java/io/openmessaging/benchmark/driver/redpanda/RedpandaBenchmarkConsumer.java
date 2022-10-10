@@ -72,7 +72,7 @@ public class RedpandaBenchmarkConsumer implements BenchmarkConsumer {
                         callback.messageReceived(record.value(), record.timestamp());
 
                         offsetMap.put(new TopicPartition(record.topic(), record.partition()),
-                                new OffsetAndMetadata(record.offset()));
+                                new OffsetAndMetadata(record.offset()+1));
                     }
 
 
