@@ -338,10 +338,12 @@ public class LocalWorker implements Worker, ConsumerCallback {
         bytesReceivedCounter.add(size);
 
         // NOTE: PublishTimestamp is expected to be using the wall-clock time across
-        // machines
+        // machines in milliseocnds
         Instant currentTime = Instant.now();
+
         long currentTimeNanos = TimeUnit.SECONDS.toNanos(currentTime.getEpochSecond()) + currentTime.getNano();
-        long endToEndLatencyMicros = TimeUnit.NANOSECONDS.toMicros(currentTimeNanos - publishTimestamp);
+        long publishTimeNanos = TimeUnit.MILLISECONDS.toNanos(publishTimestamp);
+        long endToEndLatencyMicros = TimeUnit.NANOSECONDS.toMicros(currentTimeNanos - publishTimeNanos);
         if (endToEndLatencyMicros > 0) {
             endToEndCumulativeLatencyRecorder.recordValue(endToEndLatencyMicros);
             endToEndLatencyRecorder.recordValue(endToEndLatencyMicros);
