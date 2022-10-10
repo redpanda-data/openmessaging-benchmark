@@ -151,7 +151,7 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
 
     @Override
     public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
-            ConsumerCallback consumerCallback) {
+                                                               ConsumerCallback consumerCallback) {
         Properties properties = new Properties();
         consumerProperties.forEach((key, value) -> properties.put(key, value));
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscriptionName);
@@ -161,7 +161,7 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
             kafkaConsumer.subscribe(Arrays.asList(topic));
 
             // Start polling
-            BenchmarkConsumer benchmarkConsumer = new RedpandaBenchmarkConsumer(kafkaConsumer, consumerCallback);
+            BenchmarkConsumer benchmarkConsumer = new RedpandaBenchmarkConsumer(kafkaConsumer, consumerProperties, consumerCallback);
 
             // Add to consumer list to close later
             consumers.add(benchmarkConsumer);
