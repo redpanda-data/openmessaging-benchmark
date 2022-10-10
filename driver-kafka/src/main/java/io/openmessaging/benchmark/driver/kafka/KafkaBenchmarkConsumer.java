@@ -72,7 +72,7 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
                     ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(pollTimeoutMs));
 
                     for (ConsumerRecord<String, byte[]> record : records) {
-                        callback.messageReceived(record.value(), TimeUnit.MILLISECONDS.toNanos(record.timestamp()));
+                        callback.messageReceived(record.value(), record.timestamp());
 
                         offsetMap.put(new TopicPartition(record.topic(), record.partition()),
                             new OffsetAndMetadata(record.offset()+1));
