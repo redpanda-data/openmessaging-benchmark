@@ -245,6 +245,8 @@ def generate_charts(files):
             "version",
             "beginTime",
             "endTime",
+            "publishLatencyMin",
+            "endToEndLatencyMin",
             "aggregatedPublishLatencyAvg",
             "aggregatedPublishLatency50pct",
             "aggregatedPublishLatency75pct",
@@ -287,7 +289,10 @@ def generate_charts(files):
             count = count + 1
             for metric_key in metrics_of_interest:
                 if metric_key in data.keys():
-                    metrics[metric_key] = data[metric_key]
+                    metric_val = data[metric_key]
+                    if metric_key in ('publishLatencyMin', 'endToEndLatencyMin'):
+                       metric_val = min(metric_val)
+                    metrics[metric_key] = metric_val
             metrics["throughputMBps"] = throughput
 
         # OMB tooling depends on the output of this script, do not print extra stuff to stdout unless
