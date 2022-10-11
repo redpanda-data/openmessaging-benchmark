@@ -79,7 +79,7 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
                     /* We're only going to submit an async commit request if:
                         - autoCommit is disabled AND
                         - there are offsets to commit AND
-                            - offsetCommitLingerMs is zero (the default, so no waiting for async callbacks at all) OR
+                            - offsetCommitLingerMs is negative OR
                             - we've waited lingerMs milliseconds since the last callback completed (+ve or -ve)
                      */
                     long now = System.currentTimeMillis();
