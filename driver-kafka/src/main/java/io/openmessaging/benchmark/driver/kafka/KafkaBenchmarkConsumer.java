@@ -38,6 +38,7 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
 
     private final ExecutorService executor;
     private final Future<?> consumerTask;
+    private final ConsumerCallback callback;
     private volatile boolean closing = false;
 
     private long timeSinceOffsetCommitCallback = 0;
@@ -58,6 +59,7 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
                                   long pollTimeoutMs) {
         this.consumer = consumer;
         this.executor = Executors.newSingleThreadExecutor();
+        this.callback = callback;
 
         this.offsetCommitLingerMs = Long.valueOf((String)consumerConfig.getOrDefault(OFFSET_COMMIT_CONFIG, "0"));
         this.autoCommit = Boolean.valueOf((String)consumerConfig.getOrDefault(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,"false"));
@@ -114,5 +116,9 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
     @Override
     public void onComplete(Map<TopicPartition, OffsetAndMetadata> map, Exception e) {
         timeSinceOffsetCommitCallback = System.currentTimeMillis();
+        if (e != null) {
+            log.warn("Error committing offsets", e);
+            callback.error();
+        }
     }
 }
