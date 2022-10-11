@@ -44,7 +44,7 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
     private long offsetCommitLingerMs;
     private boolean autoCommit;
 
-    private final String OFFSET_COMMIT_CONFIG = "offsetCommitLingerMs";
+    private static final String OFFSET_COMMIT_CONFIG = "offsetCommitLingerMs";
 
     public KafkaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer,
                                   Properties consumerConfig,
@@ -85,7 +85,7 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
                     long now = System.currentTimeMillis();
                     long timeSinceOffsetCommitComplete = now - timeSinceOffsetCommitCallback;
                     if (!autoCommit && !offsetMap.isEmpty() &&
-                            (offsetCommitLingerMs == 0  || timeSinceOffsetCommitComplete >= offsetCommitLingerMs)) {
+                            (offsetCommitLingerMs < 0  || timeSinceOffsetCommitComplete >= offsetCommitLingerMs)) {
                         log.debug("msec since last offset commit complete: {}", timeSinceOffsetCommitComplete);
                         // Async commit all messages polled so far
                         consumer.commitAsync(offsetMap, this);
