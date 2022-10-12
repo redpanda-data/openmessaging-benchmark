@@ -62,7 +62,7 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer, OffsetCommitCa
         this.callback = callback;
 
         this.offsetCommitLingerMs = Long.valueOf((String)consumerConfig.getOrDefault(OFFSET_COMMIT_CONFIG, "0"));
-        this.autoCommit = Boolean.valueOf((String)consumerConfig.getOrDefault(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,"false"));
+        this.autoCommit = Boolean.valueOf((String)consumerConfig.getOrDefault(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,"true"));
 
         this.consumerTask = this.executor.submit(() -> {
             long lastOffsetNanos = System.nanoTime();
