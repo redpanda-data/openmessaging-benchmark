@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.beust.jcommander.converters.FileConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +54,9 @@ public class Benchmark {
 
     static class Arguments {
 
-        @Parameter(names = {"-c", "--csv"}, description = "Print results from this directory to a csv file")
-        String resultsDir;
+        @Parameter(names = {"-c", "--csv"}, description = "Print results from this directory to a csv file",
+                converter = FileConverter.class)
+        File resultsDir;
 
         @Parameter(names = { "-h", "--help" }, description = "Help message", help = true)
         boolean help;
@@ -109,6 +111,12 @@ public class Benchmark {
             ResultsToCsv r = new ResultsToCsv();
             r.writeAllResultFiles(arguments.resultsDir);
             System.exit(0);
+        } else if (arguments.drivers == null)  {
+            System.err.println("--drivers must be specified");
+            System.exit(-1);
+        } else if (arguments.workloads == null) {
+            System.err.println("At least one workload must be specified");
+            System.exit(-1);
         }
 
         if (arguments.workers != null && arguments.workersFile != null) {
