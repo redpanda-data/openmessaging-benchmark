@@ -1,0 +1,103 @@
+- hosts: redpanda
+
+  tasks:
+  - name: Copy CA Certs
+    copy:
+      src: "{{ ca_cert }}"
+      dest: /etc/redpanda/certs/truststore.pem
+      owner: redpanda
+      group: redpanda
+
+  - name: Copy Node Certs
+    copy:
+      src: certs/{{ansible_hostname}}/node.crt
+      dest: /etc/redpanda/certs/node.crt
+      owner: redpanda
+      group: redpanda
+
+  - name: Configure via RPK
+    shell: |
+      rpk redpanda config set redpanda.admin_api_tls '{
+        enabled: true,
+        require_client_auth: false,
+        key_file: /etc/redpanda/certs/node.key,
+        cert_file: /etc/redpanda/certs/node.crt,
+        truststore_file: /etc/redpanda/certs/truststore.pem
+      }' --format yaml
+
+      rpk redpanda config set redpanda.kafka_api_tls '{
+        enabled: true,
+        require_client_auth: false,
+        key_file: /etc/redpanda/certs/node.key,
+        cert_file: /etc/redpanda/certs/node.crt,
+        truststore_file: /etc/redpanda/certs/truststore.pem
+      }' --format yaml
+
+      rpk redpanda config set redpanda.rpc_server_tls '{
+        enabled: true,
+        require_client_auth: false,
+        key_file: /etc/redpanda/certs/node.key,
+        cert_file: /etc/redpanda/certs/node.crt,
+        truststore_file: /etc/redpanda/certs/truststore.pem
+      }' --format yaml
+
+      rpk redpanda config set 'rpk.admin_api' "
+        tls:
+          truststore_file: /etc/redpanda/certs/truststore.pem
+      " --format yaml
+
+      rpk redpanda config set 'rpk.kafka_api.tls' "
+          { truststore_file: /etc/redpanda/certs/truststore.pem }
+      " --format yaml
+
+      chown -R redpanda:redpanda /etc/redpanda
+
+  - name: Restart redpanda
+    systemd:
+      name: redpanda
+      state: restarted
+
+
+- hosts: prometheus
+  tasks:
+  - name: Copy CA Certs
+    copy:
+      src: "{{ ca_cert }}"
+      dest: /etc/prometheus/truststore.pem
+      owner: prometheus
+      group: prometheus
+
+  - name: Configure scrape
+    blockinfile:
+      path: /etc/prometheus/prometheus.yml
+      state: present
+      insertafter: 'job_name: redpanda'
+      block: |4
+              scheme: https
+              tls_config:
+                ca_file: /etc/prometheus/truststore.pem
+
+  - name: Restart Prometheus
+    systemd:
+      name: prometheus
+      state: restarted
+
+- hosts: client
+  tasks:
+    - name: Copy CA Certs
+      copy:
+        src: "{{ ca_cert }}"
+        dest: /etc/ssl/certs/redpanda.pem
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Install into Java truststore
+      java_cert:
+        executable: "/usr/bin/keytool"
+        cert_alias: "redpanda"
+        cert_path: "/etc/ssl/certs/redpanda.pem"
+        keystore_path: "/etc/ssl/certs/java/cacerts"
+        keystore_pass: "changeit"
+        keystore_type: JKS
+        state: present

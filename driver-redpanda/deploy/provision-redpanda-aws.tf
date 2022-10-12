@@ -41,12 +41,15 @@ variable "num_instances" {
   type = map
 }
 
+variable "owner" {}
+
 # Create a VPC to launch our instances into
 resource "aws_vpc" "benchmark_vpc" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name = "RedPanda-Benchmark-VPC-${random_id.hash.hex}"
+    Name  = "RedPanda-Benchmark-VPC-${random_id.hash.hex}"
+    owner = "${var.owner}"
   }
 }
 
@@ -126,7 +129,8 @@ resource "aws_security_group" "benchmark_security_group" {
   }
 
   tags = {
-    Name = "Benchmark-Security-Group-${random_id.hash.hex}"
+    Name  = "Benchmark-Security-Group-${random_id.hash.hex}"
+    owner = "${var.owner}"
   }
 }
 
@@ -145,7 +149,8 @@ resource "aws_instance" "redpanda" {
   monitoring             = true
 
   tags = {
-    Name = "redpanda-${count.index}"
+    Name  = "redpanda-${count.index}"
+    owner = "${var.owner}"
   }
 }
 
@@ -159,7 +164,8 @@ resource "aws_instance" "client" {
   monitoring             = true
 
   tags = {
-    Name = "redpanda-client-${count.index}"
+    Name  = "redpanda-client-${count.index}"
+    owner = "${var.owner}"
   }
 }
 
@@ -172,7 +178,8 @@ resource "aws_instance" "prometheus" {
   count                  = "${var.num_instances["prometheus"]}"
 
   tags = {
-    Name = "prometheus-${count.index}"
+    Name  = "prometheus-${count.index}"
+    owner = "${var.owner}"
   }
 }
 

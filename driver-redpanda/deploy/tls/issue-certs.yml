@@ -1,0 +1,20 @@
+- hosts: redpanda
+  serial: 1
+
+  tasks:
+  - name: Issue Certs
+    command: 
+      cmd: |
+        openssl ca
+        -config ca/ca.conf
+        -keyfile ca/ca.key
+        -cert ca/ca.crt
+        -policy signing_policy
+        -extensions signing_node_req
+        -in certs/{{ansible_hostname}}/node.csr
+        -out certs/{{ansible_hostname}}/node.crt
+        -outdir certs/
+        -batch
+      creates: certs/{{ansible_hostname}}/node.crt
+    delegate_to: 127.0.0.1
+
