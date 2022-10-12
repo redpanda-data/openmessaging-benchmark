@@ -326,11 +326,11 @@ public class LocalWorker implements Worker, ConsumerCallback {
     }
 
     @Override
-    public void messageReceived(ByteBuffer data, long publishTimestamp) {
-        internalMessageReceived(data.remaining(), publishTimestamp);
+    public void messageReceived(ByteBuffer data, long publishTimestampMillis) {
+        internalMessageReceived(data.remaining(), publishTimestampMillis);
     }
 
-    public void internalMessageReceived(int size, long publishTimestamp) {
+    public void internalMessageReceived(int size, long publishTimestampMillis) {
         messagesReceived.increment();
         totalMessagesReceived.increment();
         messagesReceivedCounter.inc();
@@ -342,7 +342,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         Instant currentTime = Instant.now();
 
         long currentTimeNanos = TimeUnit.SECONDS.toNanos(currentTime.getEpochSecond()) + currentTime.getNano();
-        long publishTimeNanos = TimeUnit.MILLISECONDS.toNanos(publishTimestamp);
+        long publishTimeNanos = TimeUnit.MILLISECONDS.toNanos(publishTimestampMillis);
         long endToEndLatencyMicros = TimeUnit.NANOSECONDS.toMicros(currentTimeNanos - publishTimeNanos);
         if (endToEndLatencyMicros > 0) {
             endToEndCumulativeLatencyRecorder.recordValue(endToEndLatencyMicros);
