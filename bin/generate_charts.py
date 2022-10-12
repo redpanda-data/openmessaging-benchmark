@@ -23,6 +23,7 @@ import json
 import math
 import argparse
 import sys
+import re
 
 import pygal
 from pygal.style import Style
@@ -49,11 +50,10 @@ chartStyle = Style(
     major_label_font_size=16,
 )
 
-#theme = pygal.style.CleanStyle
+# theme = pygal.style.CleanStyle
 theme = chartStyle
 fill = False
 output = ''
-file_list = defaultdict(list)
 charts = defaultdict(list)
 coalesce = False
 
@@ -62,6 +62,7 @@ def _clean_xy_values(values):
     values = sorted((float(x), y) for x, y in values.items())
     # do not restrict to any percentiles. show the max; the outliers
     # are where the goodies lie
+
     def _x_axis(x):
         if x < 100.0: x = math.log10(100 / (100 - x))
         # clamp
@@ -90,7 +91,6 @@ def create_quantile_chart(title, y_label, time_series):
                      stroke_style={'width': 2},
                      show_y_guides=True,
                      show_x_guides=True)
-    # chart = pygal.XY()
     chart.title = title
     chart.human_readable = True
     chart.y_title = y_label
@@ -104,7 +104,7 @@ def create_quantile_chart(title, y_label, time_series):
         xy_values = _clean_xy_values(values)  
         chart.add(label, xy_values, stroke_style=opts)
 
-    return chart.render(disable_xml_declaration=True)
+    return chart
 
 
 def create_multi_chart(title, y_label_1, y_label_2,
@@ -112,7 +112,7 @@ def create_multi_chart(title, y_label_1, y_label_2,
     chart = pygal.XY(style=theme,
                      dots_size=1,
                      show_dots=False,
-                     stroke_style={'width': 2},
+                     stroke_style={'width': 3},
                      fill=fill,
                      legend_at_bottom=True,
                      show_x_guides=False,
@@ -120,6 +120,7 @@ def create_multi_chart(title, y_label_1, y_label_2,
     chart.title = title
     chart.human_readable = True
     chart.x_title = 'Time (seconds)'
+    chart._y_title = y_label_1
 
     ys_1 = []
     ys_2 = []
@@ -138,10 +139,10 @@ def create_multi_chart(title, y_label_1, y_label_2,
         if max_y_1 < y:
             max_y_1 = y
     chart.range = (0, max_y_1 * 1.20)
-    return chart.render(disable_xml_declaration=True)
+    return chart
 
 
-def create_bar_chart(title, y_label, x_label, data):
+def create_bar_chart(title, y_title, x_label, data):
     chart = pygal.Bar(style=theme,
                       dots_size=1,
                       show_dots=False,
@@ -152,15 +153,16 @@ def create_bar_chart(title, y_label, x_label, data):
                       show_y_guides=True)
     chart.title = title
     chart.x_labels = x_label
+    chart.y_title = y_title
     chart.value_formatter = lambda y: "{:,.0f}".format(y)
 
     for label, points in data.items():
         chart.add(label, points)
 
-    return chart.render(disable_xml_declaration=True)
+    return chart
 
 
-def create_chart(title, y_label, time_series):
+def create_chart(title, y_title, time_series):
     chart = pygal.XY(style=theme,
                      dots_size=1,
                      show_dots=False,
@@ -172,7 +174,7 @@ def create_chart(title, y_label, time_series):
     chart.title = title
 
     chart.human_readable = True
-    chart.y_title = y_label
+    chart.y_title = y_title
     chart.x_title = 'Time (seconds)'
     
     ys = []
@@ -186,7 +188,7 @@ def create_chart(title, y_label, time_series):
             max_y = y
     chart.range = (max_y * 0.0, max_y * 1.20)
 
-    return chart.render(disable_xml_declaration=True)
+    return chart
 
 
 def generate_charts(files):
@@ -233,6 +235,8 @@ def generate_charts(files):
         stat_lat_max = []
         stat_lat_quantile = []
         stat_e2e_lat_quantile = []
+        stat_e2e_lat_avg = []
+        stat_e2e_lat_p50 = []
         drivers = []
 
         pub_rate_avg = {}
@@ -280,6 +284,8 @@ def generate_charts(files):
             stat_lat_quantile.append(data['aggregatedPublishLatencyQuantiles'])
             stat_e2e_lat_quantile.append(
                 data['aggregatedEndToEndLatencyQuantiles'])
+            stat_e2e_lat_avg.append(data['endToEndLatencyAvg'])
+            stat_e2e_lat_p50.append(data['endToEndLatency50pct'])
             drivers.append(data['name'])
             throughput = (sum(data['publishRate']) / len(data['publishRate']) * 1024) / (1024.0 * 1024.0)
             pub_rate_avg["Throughput (MB/s): higher is better"].append({
@@ -329,20 +335,26 @@ def generate_charts(files):
         # Generate p99 latency time-series
         time_series = zip(drivers, stats_lat_p99)
         charts[workload].append(create_chart('Publish Latency - 99th Percentile: lower is better',
-                     y_label='Latency (ms)',
-                     time_series=time_series))
+                                             y_title='Latency (ms)',
+                                             time_series=time_series))
 
         # Generate avg E2E latency time-series
-        time_series = zip(drivers, stat_lat_avg)
+        time_series = zip(drivers, stat_e2e_lat_avg)
         charts[workload].append(create_chart('End-to-end Latency - Average: lower is better',
-                     y_label='Latency (ms)',
-                     time_series=time_series))
+                                             y_title='Latency (ms)',
+                                             time_series=time_series))
+
+        # Generate avg E2E latency time-series
+        time_series = zip(drivers, stat_e2e_lat_p50)
+        charts[workload].append(create_chart('End-to-end Latency - P50: lower is better',
+                                             y_title='Latency (ms)',
+                                             time_series=time_series))
 
         # Generate publish rate
         time_series = zip(drivers, stats_pub_rate)
         charts[workload].append(create_chart('Publish Rate: higher is better',
-                     y_label='Message/s',
-                     time_series=time_series))
+                                             y_title='Message/s',
+                                             time_series=time_series))
 
         # Generate consume + backlog rate
         labels_con = []
@@ -384,6 +396,13 @@ if __name__ == "__main__":
                         action='store_true',
                         help='Specify put all workloads on a single set of charts')
 
+    parser.add_argument('--image-format',
+                        dest='image_format',
+                        required=False,
+                        choices=['inline', 'svg', 'png'],
+                        default='inline',
+                        help='Specify put all workloads on a single set of charts')
+
     args = parser.parse_args()
 
     prefixes = {}
@@ -392,6 +411,8 @@ if __name__ == "__main__":
         output = path.join(args.output, '')
 
     coalesce = args.coalesce
+
+    image_format = args.image_format
 
     # Recursively fetch all json files in the results dir.
     filelist = glob.iglob(path.join(args.results_dir, "**/*.json"), recursive=True)
@@ -414,7 +435,24 @@ if __name__ == "__main__":
     <div class='row'>
     <div class='well col-md-12'><h2>{{workload}}<h2></div>
     {% for chart in charts[workload] %}
-      {{chart}}
+      {% if image_format == 'inline' %}
+        {{chart.render(disable_xml_declaration=True)}}
+      {% else %}
+        {% if image_format == 'svg' %}
+            {% set fileName = output  + re.sub("[()-/ ]",'', workload + "-" + chart.title.split(":")[0]) + ".svg" 
+            | replace ("(","") %}
+            {{ chart.render_to_file(fileName) or '' }}
+            <div class="embed-responsive embed-responsive-4by3">
+              <embed class=embed-responsive-item" type="image/svg+xml" src="{{ fileName }}"/>
+            </div>
+        {% else %}
+            {% set fileName = output  + re.sub("[()-/ ]",'', workload + "-" + chart.title.split(":")[0]) + ".png"
+            | replace ("(","") %}
+            {{ chart.render_to_png(fileName) or '' }}
+            <img src="{{ fileName }}" class="img-fluid"/>
+            
+        {% endif %}
+      {% endif %}
     {% endfor %}
     <div>
   {% endfor %}
@@ -425,7 +463,7 @@ if __name__ == "__main__":
 
     template = Template(html)
 
-    index_html = template.render(charts=charts, title="Charts")
+    index_html = template.render(charts=charts, title="Charts", image_format=image_format, re=re, output=output)
 
     f = open(f"{output}index.html", "w")
     f.write(index_html)
