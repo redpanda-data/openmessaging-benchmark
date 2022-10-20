@@ -5,6 +5,9 @@
 - Terraform
 
 - Ansible
+	- cloudalchemy.node_exporter
+	- cloudalchemy.prometheus
+	- cloudalchemy.grafana
 
 - Python 3 set as default.
 
