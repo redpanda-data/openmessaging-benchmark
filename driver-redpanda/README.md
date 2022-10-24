@@ -44,7 +44,7 @@
 
 Once you have ran a benchmark, a json file will be generated in the data directory. You can use `bin/generate_charts.py` to generate a a visual representation of this data.
 
-First install the python script's prerequisites:
+First install the python script's prerequisites (Note Python 3.10 or later is not currently supported):
 
 ```bash
 python3 -m pip install numpy jinja2 pygal
