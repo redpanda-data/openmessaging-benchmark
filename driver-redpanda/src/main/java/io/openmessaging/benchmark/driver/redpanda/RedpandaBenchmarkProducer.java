@@ -18,11 +18,15 @@
  */
 package io.openmessaging.benchmark.driver.redpanda;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 
 import io.openmessaging.benchmark.driver.BenchmarkProducer;
 
@@ -34,6 +38,18 @@ public class RedpandaBenchmarkProducer implements BenchmarkProducer {
     public RedpandaBenchmarkProducer(KafkaProducer<String, byte[]> producer, String topic) {
         this.producer = producer;
         this.topic = topic;
+    }
+
+    long nextOut;
+
+    private static void print_metric(String name, Map<MetricName, ? extends Metric> map) {
+        for (Map.Entry<MetricName, ? extends Metric> e : map.entrySet()) {
+            if (e.getKey().name().equals(name)) {
+                System.err.println(name + ": " + e.getValue().metricValue());
+                return;
+            }
+        }
+        System.err.println(name + ": NOT FOUND");
     }
 
     @Override
@@ -52,6 +68,25 @@ public class RedpandaBenchmarkProducer implements BenchmarkProducer {
             });
         } catch(Exception e) {
             future.completeExceptionally(e);
+        }
+
+        if (System.nanoTime() > nextOut) {
+            Map<MetricName, ? extends Metric> m = producer.metrics();
+            // System.err.print("Got " + m.size() + " metrics\n");
+            // for (Map.Entry<MetricName, ? extends Metric> e : m.entrySet()) {
+            //     System.err.print(e.getKey() + ":\n    " + e.getValue().metricValue().getClass() + "\n");
+            //     try {
+            //         Measurable mes = ((KafkaMetric)e.getValue()).measurable();
+            //         System.err.print("        " + mes.getClass() + "\n");
+            //         System.err.print("        " + mes + "\n");
+            //     } catch (IllegalStateException ise) {
+            //         System.err.print("        GAUGE\n");
+            //     }
+            // }
+            print_metric("batch-size-avg", m);
+            print_metric("batch-size-max", m);
+
+            nextOut = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         }
 
         return future;
