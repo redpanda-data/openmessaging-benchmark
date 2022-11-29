@@ -70,6 +70,10 @@ def create_charts(test_results):
                               y_label='Latency (ms)',
                               time_series=[(x['driver'], x['aggregatedEndToEndLatencyQuantiles']) for x in results])
 
+        create_histrogram(workload, 'End To End Latency Quantiles',
+                              y_label='Latency (ms)',
+                              runs=[(x['beginTime'], x['aggregatedEndToEndLatencyQuantiles']) for x in results])
+
 
 def create_chart(workload, title, y_label, time_series):
     chart = pygal.XY(dots_size=.3,
@@ -111,6 +115,41 @@ def create_quantile_chart(workload, title, y_label, time_series):
         chart.add(label, xy_values)
 
     chart.render_to_file('%s - %s.svg' % (workload, title))
+
+def find_nearest_quantile(value, quants):
+    idx = 0
+    for quant, val in quants:
+        if val >= value:
+            return idx
+
+        idx += 1
+
+    return len(quants) - 1
+
+def create_histrogram(workload, title, y_label, runs):
+    hist_graph = pygal.Histogram()
+
+    hist_graph.human_readable = True
+    hist_graph.y_title = 'Frequency'
+    hist_graph.x_title = 'Latency (ms)'
+
+    for label, quants in runs:
+        quants = sorted(quants.items(), key=lambda tup: float(tup[0]))
+        last_quant_idx = 0
+        inc = 100
+        hist_data = []
+
+        while last_quant_idx < len(quants):
+            current_quant_idx = find_nearest_quantile(quants[last_quant_idx][1] + inc, quants)
+            freq = float(quants[current_quant_idx][0]) - float(quants[last_quant_idx][0])
+
+            hist_data.append((freq, quants[last_quant_idx][1], quants[current_quant_idx][1]))
+            last_quant_idx = current_quant_idx + 1
+
+        hist_graph.add(label, hist_data[1:])
+
+    hist_graph.render_to_file(f"{workload} - histogram.svg")
+
 
 
 if __name__ == '__main__':
