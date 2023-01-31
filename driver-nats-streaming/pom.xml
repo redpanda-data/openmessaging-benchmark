@@ -24,6 +24,11 @@
 
     <artifactId>driver-nats-streaming</artifactId>
     <dependencies>
+       <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>29.0-jre</version>
+        </dependency>
         <dependency>
             <groupId>io.nats</groupId>
             <artifactId>java-nats-streaming</artifactId>
