@@ -388,7 +388,7 @@ if __name__ == "__main__":
                         help='Options for each series: Dashed or Filled')
     parser.add_argument('--output',
                         dest='output',
-                        required=False,
+                        required=True,
                         type=str,
                         help='Location where all output will be stored')
     parser.add_argument('--coalesce-workloads',
