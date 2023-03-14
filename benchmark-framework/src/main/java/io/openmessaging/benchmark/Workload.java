@@ -54,4 +54,27 @@ public class Workload {
     public int warmupDurationMinutes = 30;
     public int sampleRateMillis = 10000;
     public int testDurationMinutes;
+
+    /**
+     * Perform basic validation on the workload and throw an exception if
+     * any invalid configuration is found.
+     */
+    public void validate() {
+        checkNonNegative(topics, "topics");
+        checkNonNegative(partitionsPerTopic, "partitionsPerTopic");
+        checkNonNegative(messageSize, "messageSize");
+        checkNonNegative(randomizedPayloadPoolSize, "randomizedPayloadPoolSize");
+        checkNonNegative(subscriptionsPerTopic, "subscriptionsPerTopic");
+        checkNonNegative(producersPerTopic, "producersPerTopic");
+        checkNonNegative(consumerPerSubscription, "consumerPerSubscription");
+        checkNonNegative(producerRate, "producerRate");
+        checkNonNegative(consumerBacklogSizeGB, "consumerBacklogSizeGB");
+    }
+
+    private void checkNonNegative(long val, String fieldName) {
+        if (val < 0) {
+            throw new RuntimeException(String.format(
+                "In workload file field %s had invalid negative value: %d", fieldName, val));
+        }
+    }
 }
