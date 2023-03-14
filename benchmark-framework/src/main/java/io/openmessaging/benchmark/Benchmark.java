@@ -89,6 +89,15 @@ public class Benchmark {
         public String serviceVersion;
     }
 
+    /**
+     * Load and validate workload.
+     */
+    private static Workload readWorkload(File file) throws IOException {
+        Workload w = mapper.readValue(file, Workload.class);
+        w.validate();
+        return w;
+    }
+
     public static void main(String[] args) throws Exception {
         final Arguments arguments = new Arguments();
         JCommander jc = new JCommander(arguments);
@@ -145,7 +154,7 @@ public class Benchmark {
             File file = new File(path);
             String name = file.getName().substring(0, file.getName().lastIndexOf('.'));
 
-            workloads.put(name, mapper.readValue(file, Workload.class));
+            workloads.put(name, readWorkload(file));
         }
 
         log.info("Workloads: {}", writer.writeValueAsString(workloads));
