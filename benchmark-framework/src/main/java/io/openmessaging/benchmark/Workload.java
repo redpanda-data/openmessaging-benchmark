@@ -13,13 +13,25 @@
  */
 package io.openmessaging.benchmark;
 
+import java.util.Collections;
+import java.util.List;
+
 import io.openmessaging.benchmark.utils.distributor.KeyDistributorType;
 
 public class Workload {
     public String name;
 
-    /** Number of topics to create in the test */
+    /**
+     * Number of topics to create in the test, must be zero iff
+     * existingTopicList is used.
+     */
     public int topics;
+
+    /**
+     * A list of existing topics names to use instead of randomly generated
+     * new topics. If this is list is non-empty, topics must be zero.
+     */
+    public List<String> existingTopicList = Collections.emptyList();
 
     /** Number of partitions each topic will contain */
     public int partitionsPerTopic;
@@ -69,6 +81,16 @@ public class Workload {
         checkNonNegative(consumerPerSubscription, "consumerPerSubscription");
         checkNonNegative(producerRate, "producerRate");
         checkNonNegative(consumerBacklogSizeGB, "consumerBacklogSizeGB");
+
+        if (topics > 0 && !existingTopicList.isEmpty()) {
+            throw new RuntimeException(String.format(
+                "Workload specified both non-zero topic count (%d) and explicit topic list: these options " +
+                "are mutually incompatible.", topics));
+        }
+
+        if (topics == 0 && existingTopicList.isEmpty()) {
+            throw new RuntimeException("The workload must specify non-zero topics or a non-empty existingTopicList");
+        }
     }
 
     private void checkNonNegative(long val, String fieldName) {

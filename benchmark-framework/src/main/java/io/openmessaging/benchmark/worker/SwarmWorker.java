@@ -56,7 +56,7 @@ import static org.asynchttpclient.Dsl.*;
 
 /*
 SwarmWorker is similar to DistributedWorkersEnsemble, the key distinctions:
- 
+
  - it doesn't depends on the synchronized clocks
  - each worker play a role of a producer and a consumer worker
    - the producer workers are homogeneous:
@@ -66,7 +66,7 @@ SwarmWorker is similar to DistributedWorkersEnsemble, the key distinctions:
        - each worker has {topics} x {subscriptionsPerTopic} unique consumer groups
        - each consumer group has {consumerPerSubscription} subscriptions (only one it making a progress)
  - swarm workload is more chatty and consume more network bandwidth
- 
+
 Let's focus on the last point and assume we use two workers with the following settings:
 
     name: load.400k
@@ -81,20 +81,20 @@ Let's focus on the last point and assume we use two workers with the following s
     consumerBacklogSizeGB: 0
     testDurationMinutes: 60
     warmupDurationMinutes: 5
- 
+
 ## DistributedWorkersEnsemble
- 
+
  - We have two nodes: one becomes a producer and another a consumer workers.
  - The producer worker creates 16 producers = {topics = 1} x {producersPerTopic = 16}.
  - The producer worker aims: 390 MB/s = {messageSize = 1000b} x {producerRate = 400000 ops}.
  - The consumer worker has 8 {topics = 1} x {subscriptionsPerTopic = 1} x {consumerPerSubscription = 8}
    consumers, a single consumer group so only one consumer consumes all partitions; ideally a consumer
    is caught up with the producers so it consumers 390 MB/s
- 
+
 Each worker consumes 390 MB/s of traffic
- 
+
 ## SwarmWorker
- 
+
  - Each node is both a consumer and a producer worker.
  - Each worker has 16 producers = {topics = 1} x {producersPerTopic = 16}
  - producerRate is split across nodes so each node has producerRate = 200000 ops
@@ -104,7 +104,7 @@ Each worker consumes 390 MB/s of traffic
     - 8 consumers = {topics = 1} x {subscriptionsPerTopic = 1} x {consumerPerSubscription = 8}
  - Ideally consumer is caught up with the producers so it had to consume 2x195 MB/s = 390 MB/s
  Each node consumes 585 MB/s of traffic = 195 MB/s of write traffic + 390 MB/s of read traffic
- 
+
 We should not compare Swarm & Dist directly because by the nature of the workload Swarm may saturate the network earlier.
 */
 public class SwarmWorker implements Worker {
@@ -131,7 +131,7 @@ public class SwarmWorker implements Worker {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<String> createTopics(TopicsInfo topicsInfo) throws IOException {
+    public List<String> createOrValidateTopics(TopicsInfo topicsInfo) throws IOException {
         // Create all topics from a single worker node
         return (List<String>) post(workers.get(0), "/create-topics", writer.writeValueAsBytes(topicsInfo), List.class)
                 .join();
@@ -220,7 +220,7 @@ public class SwarmWorker implements Worker {
             try {
                 stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
-                
+
                 stats.scheduleLatency.add(Histogram.decodeFromCompressedByteBuffer(
                     ByteBuffer.wrap(is.scheduleLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
 

@@ -27,7 +27,7 @@ public interface BenchmarkDriver extends AutoCloseable {
      * file.
      * <p>
      * The format of the configuration file is specific to the driver implementation.
-     * 
+     *
      * @param configurationFile
      * @param statsLogger stats logger to collect stats from benchmark driver
      * @throws IOException
@@ -45,16 +45,27 @@ public interface BenchmarkDriver extends AutoCloseable {
     CompletableFuture<Void> createTopic(String topic, int partitions);
 
     /**
+     * Optionally validate that a given topic exists, returning false if it does not.
+     *
+     * By default the implementatin simply returns true without checking, which is
+     * sufficient if the producer or consumer themselves return timely and informative
+     * errors when the topic doesn't exist.
+     */
+    default CompletableFuture<Boolean> validateTopicExists(String topicName) {
+        return CompletableFuture.completedFuture(true);
+    }
+
+    /**
      * Create a producer for a given topic
      */
     CompletableFuture<BenchmarkProducer> createProducer(String topic);
 
     /**
      * Create a benchmark consumer relative to one particular topic and subscription.
-     * 
+     *
      * It is responsibility of the driver implementation to invoke the <code>consumerCallback</code> each time a message
      * is received.
-     * 
+     *
      * @param topic
      * @param subscriptionName
      * @param consumerCallback

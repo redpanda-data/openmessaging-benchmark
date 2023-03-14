@@ -77,7 +77,7 @@ public class WorkerHandler {
     private void handleCreateTopics(Context ctx) throws Exception {
         TopicsInfo topicsInfo = mapper.readValue(ctx.body(), TopicsInfo.class);
         log.info("Received create topics request for topics: {}", ctx.body());
-        List<String> topics = localWorker.createTopics(topicsInfo);
+        List<String> topics = localWorker.createOrValidateTopics(topicsInfo);
         ctx.result(writer.writeValueAsString(topics));
     }
 
