@@ -13,9 +13,22 @@
  */
 package io.openmessaging.benchmark.worker.commands;
 
+import java.util.Collections;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Preconditions;
+
+import io.openmessaging.benchmark.Workload;
+
 public class TopicsInfo {
     public int numberOfTopics;
     public int numberOfPartitionsPerTopic;
+
+    /** If this is non-empty, the properties above are zero and vice-versa. */
+    @JsonProperty
+    public List<String> existingTopics = Collections.emptyList();
 
     public TopicsInfo() {
     }
@@ -23,5 +36,32 @@ public class TopicsInfo {
     public TopicsInfo(int numberOfTopics, int numberOfPartitionsPerTopic) {
         this.numberOfTopics = numberOfTopics;
         this.numberOfPartitionsPerTopic = numberOfPartitionsPerTopic;
+    }
+
+    public TopicsInfo(List<String> existingTopics) {
+        Preconditions.checkArgument(existingTopics != null);
+        Preconditions.checkArgument(!existingTopics.isEmpty());
+        this.existingTopics = existingTopics;
+    }
+
+    /** @return true iff existing topics are to be used  */
+    @JsonIgnore
+    public boolean isExistingTopics() {
+        return !existingTopics.isEmpty();
+    }
+
+    /**
+     * Create a TopicsInfo object based on a workload object, either populating
+     * the numberOfTopics + partitions field for a workload which will use newly
+     * creted topics, or the existing topics field if existing topics are to be used.
+     */
+    public static TopicsInfo fromWorkload(Workload w) {
+        Preconditions.checkNotNull(w);
+        Preconditions.checkArgument(w.topics > 0 ^ !w.existingTopicList.isEmpty());
+        if (w.topics > 0) {
+            return new TopicsInfo(w.topics, w.partitionsPerTopic);
+        } else {
+            return new TopicsInfo(w.existingTopicList);
+        }
     }
 }

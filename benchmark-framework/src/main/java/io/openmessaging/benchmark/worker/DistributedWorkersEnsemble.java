@@ -76,7 +76,7 @@ public class DistributedWorkersEnsemble implements Worker {
 	// If there is an odd number of workers then allocate the extra to consumption.
 	int numberOfProducerWorkers = extraConsumerWorkers ? (workers.size() + 2) / 3 : workers.size() / 2;
 	List<List<String>> partitions = Lists.partition(Lists.reverse(workers), workers.size() - numberOfProducerWorkers);
-	this.producerWorkers = partitions.get(1); 
+	this.producerWorkers = partitions.get(1);
 	this.consumerWorkers = partitions.get(0);
 
         log.info("Workers list - producers: {}", producerWorkers);
@@ -93,7 +93,7 @@ public class DistributedWorkersEnsemble implements Worker {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<String> createTopics(TopicsInfo topicsInfo) throws IOException {
+    public List<String> createOrValidateTopics(TopicsInfo topicsInfo) throws IOException {
         // Create all topics from a single worker node
         try {
             return (List<String>) post(workers.get(0), "/create-topics", writer.writeValueAsBytes(topicsInfo), List.class)
@@ -224,7 +224,7 @@ public class DistributedWorkersEnsemble implements Worker {
             try {
                 stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
-                
+
                 stats.scheduleLatency.add(Histogram.decodeFromCompressedByteBuffer(
                     ByteBuffer.wrap(is.scheduleLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
 

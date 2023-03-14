@@ -150,23 +150,29 @@ public class LocalWorker implements Worker, ConsumerCallback {
     }
 
     @Override
-    public List<String> createTopics(TopicsInfo topicsInfo) {
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-        Timer timer = new Timer();
-
-
+    public List<String> createOrValidateTopics(TopicsInfo topicsInfo) {
         List<String> topics = new ArrayList<>();
-        for (int i = 0; i < topicsInfo.numberOfTopics; i++) {
-            String topicPrefix = benchmarkDriver.getTopicNamePrefix();
-            String topic = String.format("%s-%s-%04d", topicPrefix, RandomGenerator.getRandomString(), i);
-            topics.add(topic);
-            futures.add(benchmarkDriver.createTopic(topic, topicsInfo.numberOfPartitionsPerTopic));
+        boolean useExisting = topicsInfo.isExistingTopics();
+
+        if (useExisting) {
+            for (String topicName : topicsInfo.existingTopics) {
+                if (!benchmarkDriver.validateTopicExists(topicName).join()) {
+                    throw new RuntimeException(String.format("Topic specified in workload does not exist: %s",
+                        topicName));
+                }
+                topics.add(topicName);
+            }
+        } else {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (int i = 0; i < topicsInfo.numberOfTopics; i++) {
+                String topicPrefix = benchmarkDriver.getTopicNamePrefix();
+                String topic = String.format("%s-%s-%04d", topicPrefix, RandomGenerator.getRandomString(), i);
+                topics.add(topic);
+                futures.add(benchmarkDriver.createTopic(topic, topicsInfo.numberOfPartitionsPerTopic));
+            }
+            futures.forEach(CompletableFuture::join);
         }
 
-        futures.forEach(CompletableFuture::join);
-
-        log.info("Created {} topics in {} ms", topics.size(), timer.elapsedMillis());
         return topics;
     }
 
@@ -365,7 +371,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
             error();
             return;
         }
-        
+
         messagesReceived.increment();
         totalMessagesReceived.increment();
         messagesReceivedCounter.inc();
@@ -374,7 +380,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
 
         long endToEndLatencyMicros = TimeUnit.NANOSECONDS.toMicros(e2eLatencyNs);
-        
+
         endToEndCumulativeLatencyRecorder.recordValue(endToEndLatencyMicros);
         endToEndLatencyRecorder.recordValue(endToEndLatencyMicros);
         endToEndLatencyStats.registerSuccessfulEvent(endToEndLatencyMicros, TimeUnit.MICROSECONDS);

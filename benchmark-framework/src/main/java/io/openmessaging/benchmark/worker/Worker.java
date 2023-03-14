@@ -28,7 +28,21 @@ public interface Worker extends AutoCloseable {
 
     void initializeDriver(File configurationFile) throws IOException;
 
-    List<String> createTopics(TopicsInfo topicsInfo) throws IOException;
+    /**
+     * Given a TopicsInfo object, create any necessary topics.
+     *
+     * The TopicsInfo object may request the creation of N topics or it
+     * may specify that a list of existing topics are to be used, in
+     * which case this method may optionally validate that they exist.
+     *
+     * In any case, the list of topic names to be used in the test is
+     * returned.
+     *
+     * @param topicsInfo the spceification of the topics to be used
+     * @return the list of topic names to be used
+     * @throws IOException
+     */
+    List<String> createOrValidateTopics(TopicsInfo topicsInfo) throws IOException;
 
     void createProducers(List<String> topics) throws IOException;
 

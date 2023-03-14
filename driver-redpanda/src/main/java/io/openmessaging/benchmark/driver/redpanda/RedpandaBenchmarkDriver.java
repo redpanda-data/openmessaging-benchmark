@@ -23,11 +23,13 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DeleteTopicsResult;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.ListTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -139,6 +141,24 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
                 log.info("{}", e.toString());
                 throw new RuntimeException(e);
             }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> validateTopicExists(String topicName) {
+        DescribeTopicsResult r = admin.describeTopics(Collections.singletonList(topicName));
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                r.allTopicNames().get();
+            } catch (InterruptedException | ExecutionException e) {
+                if (e.getCause() instanceof UnknownTopicOrPartitionException) {
+                    return false;
+                }
+                // aything other than UnknownTopicOrPartitionException means something weird happened,
+                // like maybe we couldn't even connect to a broker
+                throw new CompletionException(e);
+            }
+            return true;
         });
     }
 
