@@ -19,7 +19,6 @@ import static java.util.stream.Collectors.toList;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +33,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Preconditions;
-import io.openmessaging.benchmark.utils.RateLimiter;
 
 import io.openmessaging.benchmark.utils.UniformRateLimiter;
 import org.HdrHistogram.Recorder;
@@ -92,16 +90,16 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final LongAdder totalErrors = new LongAdder();
     private final LongAdder totalMessagesReceived = new LongAdder();
 
-    private final Recorder publishLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
-    private final Recorder cumulativePublishLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final Recorder publishLatencyRecorder = new Recorder(5);
+    private final Recorder cumulativePublishLatencyRecorder = new Recorder(5);
     private final OpStatsLogger publishLatencyStats;
 
-    private final Recorder scheduleLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
-    private final Recorder cumulativeScheduleLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final Recorder scheduleLatencyRecorder = new Recorder(5);
+    private final Recorder cumulativeScheduleLatencyRecorder = new Recorder(5);
     private final OpStatsLogger scheduleLatencyStats;
 
-    private final Recorder publishDelayLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
-    private final Recorder cumulativePublishDelayLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final Recorder publishDelayLatencyRecorder = new Recorder(5);
+    private final Recorder cumulativePublishDelayLatencyRecorder = new Recorder(5);
     private final OpStatsLogger publishDelayLatencyStats;
 
     private final Recorder endToEndLatencyRecorder = new Recorder(TimeUnit.HOURS.toMicros(12), 5);
