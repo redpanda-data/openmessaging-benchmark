@@ -18,6 +18,7 @@ import java.net.HttpURLConnection;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+import org.HdrHistogram.Histogram;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.google.common.base.Preconditions;
 import com.google.common.io.Files;
 
 import io.javalin.Context;
@@ -126,34 +128,48 @@ public class WorkerHandler {
         localWorker.stopAll();
     }
 
+    /**
+     * Serialize the given histogram to a byte array.
+     */
+    private byte[] serializeHistogram(Histogram inputHisto) {
+        histogramSerializationBuffer = serializeHistogram(inputHisto, histogramSerializationBuffer);
+        return toByteArray(histogramSerializationBuffer);
+    }
+
+    static byte[] toByteArray(ByteBuffer buffer) {
+        byte encodedBuffer[] = new byte[buffer.remaining()];
+        buffer.get(encodedBuffer);
+        return encodedBuffer;
+    }
+
+    static ByteBuffer serializeHistogram(Histogram histo, ByteBuffer buffer) {
+        buffer.clear();
+        while (true) {
+            final int outBytes = histo.encodeIntoCompressedByteBuffer(buffer);
+            Preconditions.checkState(outBytes == buffer.position());
+            final int capacity = buffer.capacity();
+            if (outBytes < capacity) {
+                // encoding succesful
+                break;
+            }
+            // We filled the entire buffer, an indication that the buffer was not
+            // large enough, so we double the buffer and try again.
+            // See: https://github.com/HdrHistogram/HdrHistogram/issues/201
+            buffer = ByteBuffer.allocate(capacity * 2);
+        }
+        buffer.flip();
+        return buffer;
+    }
+
     private void handlePeriodStats(Context ctx) throws Exception {
         PeriodStats stats = localWorker.getPeriodStats();
 
         // Serialize histograms
-        synchronized (histogramSerializationBuffer) {
-            histogramSerializationBuffer.clear();
-            stats.publishLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.publishLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.publishLatencyBytes);
-
-            histogramSerializationBuffer.clear();
-            stats.scheduleLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.scheduleLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.scheduleLatencyBytes);
-
-            histogramSerializationBuffer.clear();
-            stats.publishDelayLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.publishDelayLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.publishDelayLatencyBytes);
-
-            histogramSerializationBuffer.clear();
-            stats.endToEndLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.endToEndLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.endToEndLatencyBytes);
+        synchronized (serializeLock) {
+            stats.publishLatencyBytes      = serializeHistogram(stats.publishLatency);
+            stats.scheduleLatencyBytes     = serializeHistogram(stats.scheduleLatency);
+            stats.publishDelayLatencyBytes = serializeHistogram(stats.publishDelayLatency);
+            stats.endToEndLatencyBytes     = serializeHistogram(stats.endToEndLatency);
         }
 
         ctx.result(writer.writeValueAsString(stats));
@@ -163,30 +179,11 @@ public class WorkerHandler {
         CumulativeLatencies stats = localWorker.getCumulativeLatencies();
 
         // Serialize histograms
-        synchronized (histogramSerializationBuffer) {
-            histogramSerializationBuffer.clear();
-            stats.publishLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.publishLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.publishLatencyBytes);
-
-            histogramSerializationBuffer.clear();
-            stats.scheduleLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.scheduleLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.scheduleLatencyBytes);
-
-            histogramSerializationBuffer.clear();
-            stats.publishDelayLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.publishDelayLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.publishDelayLatencyBytes);
-
-            histogramSerializationBuffer.clear();
-            stats.endToEndLatency.encodeIntoCompressedByteBuffer(histogramSerializationBuffer);
-            stats.endToEndLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.endToEndLatencyBytes);
+        synchronized (serializeLock) {
+            stats.publishLatencyBytes      = serializeHistogram(stats.publishLatency);
+            stats.scheduleLatencyBytes     = serializeHistogram(stats.scheduleLatency);
+            stats.publishDelayLatencyBytes = serializeHistogram(stats.publishDelayLatency);
+            stats.endToEndLatencyBytes     = serializeHistogram(stats.endToEndLatency);
         }
 
         ctx.result(writer.writeValueAsString(stats));
@@ -201,7 +198,9 @@ public class WorkerHandler {
         localWorker.resetStats();
     }
 
-    private final ByteBuffer histogramSerializationBuffer = ByteBuffer.allocate(1024 * 1024);
+    private final Object serializeLock = new Object();
+    private ByteBuffer histogramSerializationBuffer = ByteBuffer.allocate(1024 * 1024);
+
 
     private static final Logger log = LoggerFactory.getLogger(WorkerHandler.class);
 
