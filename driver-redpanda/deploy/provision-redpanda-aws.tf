@@ -10,8 +10,6 @@ terraform {
 }
 provider "aws" {
   region  = var.region
-  version = "~> 2.7"
-  profile = var.profile
 }
 
 provider "random" {
@@ -40,7 +38,9 @@ variable "region" {}
 
 variable "ami" {}
 
-variable "profile" {}
+variable "profile" {
+  default = null
+}
 
 variable "instance_types" {
   type = map
