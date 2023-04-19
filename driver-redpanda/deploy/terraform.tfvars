@@ -1,17 +1,20 @@
-public_key_path = "~/.ssh/redpanda_aws.pub"
+public_key_path = "key.pub"
+
+owner           = "redpanda"
 region          = "us-west-2"
-az		        = "us-west-2a"
-ami             = "ami-0d31d7c9fc9503726"
-profile         = "default"
+# arm64 ubuntu focal
+machine_architecture = "arm64"
 
 instance_types = {
-  "redpanda"      = "i3en.6xlarge"
-  "client"        = "c5n.9xlarge"
-  "prometheus"    = "c5.2xlarge"
+  "redpanda"      = "is4gen.4xlarge"
+  "client"        = "c6g.8xlarge"
+  "prometheus"    = "c6g.2xlarge"
 }
 
+# client instances may need to be larger than redpanda broker count
+# to provide enough message volume for testing
 num_instances = {
   "client"     = 4
-  "redpanda"   = 3
+  "redpanda"   = 6
   "prometheus" = 1
 }
