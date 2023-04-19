@@ -13,7 +13,6 @@ core/*.json
 **/.terraform
 **/terraform.tfstate
 **/terraform.tfstate.backup
-**/terraform.tfvars
 **/*.lock.info
 .DS_Store
 .factorypath
@@ -32,3 +31,4 @@ driver-redpanda/deploy/certification/hosts.ini
 driver-redpanda/deploy/certification/log
 driver-redpanda/deploy/certification/results
 driver-redpanda/deploy/certification/compare-22.1.5-22.2.1/results
+driver-redpanda-deploy/terraform.tfvars
