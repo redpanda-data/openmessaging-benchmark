@@ -52,6 +52,29 @@ variable "num_instances" {
 
 variable "owner" {}
 
+variable "machine_architecture" {
+  description = "Architecture used for selecting the AMI - change this if using ARM based instances"
+  default     = "x86_64"
+}
+
+variable "distro" {
+  description = "The default distribution to base the cluster on"
+  default     = "ubuntu-focal"
+}
+variable "redpanda_ami" {
+  description = "AMI for Redpanda broker nodes (if not set, will select based on the client_distro variable"
+  default     = null
+}
+
+variable "prometheus_ami" {
+  description = "AMI for prometheus nodes (if not set, will select based on the client_distro variable"
+  default     = null
+}
+
+variable "client_ami" {
+  description = "AMI for Redpanda client nodes (if not set, will select based on the client_distro variable"
+  default     = null
+}
 # Create a VPC to launch our instances into
 resource "aws_vpc" "benchmark_vpc" {
   cidr_block = "10.0.0.0/16"
@@ -85,6 +108,41 @@ resource "aws_subnet" "benchmark_subnet" {
 # Get public IP of this machine
 data "http" "myip" {
   url = "http://ipv4.icanhazip.com"
+}
+
+data "aws_ami" "ami" {
+  most_recent = true
+
+  filter {
+    name = "name"
+    values = [
+      "ubuntu/images/hvm-ssd/ubuntu-*-amd64-server-*",
+      "ubuntu/images/hvm-ssd/ubuntu-*-arm64-server-*",
+      "Fedora-Cloud-Base-*.x86_64-hvm-us-west-2-gp2-0",
+      "debian-*-amd64-*",
+      "debian-*-hvm-x86_64-gp2-*'",
+      "amzn2-ami-hvm-2.0.*-x86_64-gp2",
+      "RHEL*HVM-*-x86_64*Hourly2-GP2"
+    ]
+  }
+
+  filter {
+    name   = "architecture"
+    values = [var.machine_architecture]
+  }
+
+  filter {
+    name   = "name"
+    values = ["*${var.distro}*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477", "125523088429", "136693071363", "137112412989", "309956199498"]
+  # Canonical, Fedora, Debian (new), Amazon, RedHat
 }
 
 resource "aws_security_group" "benchmark_security_group" {
@@ -149,7 +207,7 @@ resource "aws_key_pair" "auth" {
 }
 
 resource "aws_instance" "redpanda" {
-  ami                    = "${var.ami}"
+  ami                    = coalesce(var.redpanda_ami, data.aws_ami.ami.image_id)
   instance_type          = "${var.instance_types["redpanda"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -164,7 +222,7 @@ resource "aws_instance" "redpanda" {
 }
 
 resource "aws_instance" "client" {
-  ami                    = "${var.ami}"
+  ami                    = coalesce(var.client_ami, data.aws_ami.ami.image_id)
   instance_type          = "${var.instance_types["client"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -179,7 +237,7 @@ resource "aws_instance" "client" {
 }
 
 resource "aws_instance" "prometheus" {
-  ami                    = "${var.ami}"
+  ami                    = coalesce(var.prometheus_ami, data.aws_ami.ami.image_id)
   instance_type          = "${var.instance_types["prometheus"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
