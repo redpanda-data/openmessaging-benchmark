@@ -18,6 +18,7 @@
 
 3. In the `driver-redpanda/deploy` directory.  Run the following: 
 
+	cp terraform.tfvars.example terraform.tfvars
         terraform init
         terraform apply -auto-approve
 
