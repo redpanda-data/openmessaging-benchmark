@@ -281,6 +281,11 @@
   become: true
   tags: client
   tasks:
+      # value for 50G java heap, adjust upwards as necessary when benchmark-worker complains
+    - ansible.posix.sysctl:
+        name: vm.max_map_count
+        value: 92160
+        state: present
     - file: path=/opt/benchmark state=absent
     - name: Copy benchmark code
       unarchive:
