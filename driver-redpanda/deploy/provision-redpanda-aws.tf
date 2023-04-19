@@ -1,3 +1,13 @@
+terraform {
+  required_providers {
+    aws = {
+      version = "4.35.0"
+    }
+    random = {
+      version = "~> 3.4.3"
+    }
+  }
+}
 provider "aws" {
   region  = var.region
   version = "~> 2.7"
@@ -5,7 +15,6 @@ provider "aws" {
 }
 
 provider "random" {
-  version = "~> 2.1"
 }
 
 variable "public_key_path" {
