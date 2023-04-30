@@ -93,9 +93,18 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
             ListTopicsResult result = admin.listTopics();
             try {
                 Set<String> topics = result.names().get();
-                // Delete all existing topics
-                DeleteTopicsResult deletes = admin.deleteTopics(topics);
-                deletes.all().get();
+                // Delete all existing topics matching the prefix
+                Set<String> topicsToDelete = new HashSet<String>();
+                String topicPrefix = getTopicNamePrefix();
+                for (String topic : topics) {
+                    if (topic.toString().startsWith(topicPrefix)) {
+                        topicsToDelete.add(topic);
+                    }
+                }
+                if (topicsToDelete.size() > 0) {
+                    DeleteTopicsResult deletes = admin.deleteTopics(topicsToDelete);
+                    deletes.all().get();
+                }
             } catch (ExecutionException e) {
                 if (e.getCause() instanceof UnknownTopicOrPartitionException) {
                     log.warn("Topic(s) appeared to be deleted already (race condition)");
