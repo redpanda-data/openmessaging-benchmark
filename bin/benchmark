@@ -23,7 +23,7 @@ done
 DIR=$( cd -P "$( dirname "$SOURCE" )/.." >/dev/null 2>&1 && pwd )
 
 if [ -d "${DIR}/lib" ]; then
-        CLASSPATH=$CLASSPATH:${DIR}lib/*
+        CLASSPATH=$CLASSPATH:${DIR}/lib/*
 else
     CLASSPATH=${DIR}/benchmark-framework/target/classes:`cat ${DIR}/benchmark-framework/target/classpath.txt`
 fi
