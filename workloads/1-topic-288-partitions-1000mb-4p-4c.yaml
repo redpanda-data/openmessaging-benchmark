@@ -1,0 +1,19 @@
+name: 1000mb/sec rate; 4 producers 4 consumers; 1 topic with 288 partitions
+
+topics: 1
+partitionsPerTopic: 288
+
+messageSize: 1024
+useRandomizedPayloads: true
+randomBytesRatio: 0.5
+randomizedPayloadPoolSize: 1000
+
+subscriptionsPerTopic: 1
+consumerPerSubscription: 4
+producersPerTopic: 4
+
+# Discover max-sustainable rate
+producerRate: 1000000
+
+consumerBacklogSizeGB: 0
+testDurationMinutes: 30

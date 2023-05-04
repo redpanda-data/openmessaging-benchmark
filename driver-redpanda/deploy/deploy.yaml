@@ -157,8 +157,6 @@
     - name: add the redpanda repo
       shell: |
         curl -1sLf {{ setup_repo }} | sudo -E bash
-      args:
-        warn: no
     - name: install redpanda
       package:
         name:
@@ -315,9 +313,8 @@
       lineinfile:
         dest: "{{ item }}"
         regexp: "^name: Redpanda"
-        line: "name: Redpanda{{ '+SASL' if sasl_enabled | default(False) | bool == True }}{{ '+TLS' if tls_enabled | default(False)|bool == True }}"
+        line: "name: Redpanda{{ '+SASL' if sasl_enabled | default(False) | bool == True }}{{ '+TLS' if tls_enabled | default(False)|bool == True }}+{{ groups['redpanda'] | length  }}x{{ instance_type }}"
       with_items: "{{ drivers_list.stdout_lines }}"
-      when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
 
     - name: Configure Security Protocol
       lineinfile:
@@ -370,13 +367,14 @@
         daemon_reload: yes
         name: "benchmark-worker"
 
-# Install the monitoring stack
+ Install the monitoring stack
 - name: Install Node Exporter
   hosts: redpanda, client
   roles:
   - cloudalchemy.node_exporter
   vars:
   - node_exporter_enabled_collectors: [ntp]
+  when: ansible_architecture = "x86_64"
   tags:
     - node_exporter
 

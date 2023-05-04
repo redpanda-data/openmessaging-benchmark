@@ -31,6 +31,8 @@ variable "region" {}
 
 variable "ami" {}
 
+variable "redpanda_ami" {}
+
 variable "profile" {}
 
 variable "instance_types" {
@@ -140,7 +142,7 @@ resource "aws_key_pair" "auth" {
 }
 
 resource "aws_instance" "redpanda" {
-  ami                    = "${var.ami}"
+  ami                    = "${var.redpanda_ami}"
   instance_type          = "${var.instance_types["redpanda"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
