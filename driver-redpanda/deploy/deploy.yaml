@@ -367,7 +367,7 @@
         daemon_reload: yes
         name: "benchmark-worker"
 
- Install the monitoring stack
+# Install the monitoring stack
 - name: Install Node Exporter
   hosts: redpanda, client
   roles:
