@@ -371,7 +371,7 @@
 - name: Install Node Exporter
   hosts: redpanda, client
   roles:
-  - cloudalchemy.node_exporter
+  - geerlingguy.node_exporter
   vars:
   - node_exporter_enabled_collectors: [ntp]
   when: ansible_architecture = "x86_64"
