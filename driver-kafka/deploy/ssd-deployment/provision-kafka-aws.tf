@@ -30,6 +30,8 @@ variable "region" {}
 
 variable "ami" {}
 
+variable "kafka_ami" {}
+
 variable "az" {}
 
 variable "instance_types" {
@@ -125,16 +127,44 @@ resource "aws_instance" "zookeeper" {
   }
 }
 
-resource "aws_instance" "kafka" {
-  ami                    = "${var.ami}"
+resource "aws_instance" "broker" {
+  ami                    = "${var.kafka_ami}"
   instance_type          = "${var.instance_types["kafka"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
-  count                  = "${var.num_instances["kafka"]}"
+  count                  = "${var.num_instances["broker"]}"
 
   tags = {
-    Name  = "kafka-${count.index}"
+    Name  = "broker-${count.index}"
+    owner = "${var.owner}"
+  }
+}
+
+resource "aws_instance" "broker_controller" {
+  ami                    = "${var.kafka_ami}"
+  instance_type          = "${var.instance_types["kafka"]}"
+  key_name               = "${aws_key_pair.auth.id}"
+  subnet_id              = "${aws_subnet.benchmark_subnet.id}"
+  vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
+  count                  = "${var.num_instances["broker_controller"]}"
+
+  tags = {
+    Name  = "brokercontroller-${count.index}"
+    owner = "${var.owner}"
+  }
+}
+
+resource "aws_instance" "controller" {
+  ami                    = "${var.kafka_ami}"
+  instance_type          = "${var.instance_types["kafka"]}"
+  key_name               = "${aws_key_pair.auth.id}"
+  subnet_id              = "${aws_subnet.benchmark_subnet.id}"
+  vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
+  count                  = "${var.num_instances["controller"]}"
+
+  tags = {
+    Name  = "controller-${count.index}"
     owner = "${var.owner}"
   }
 }
@@ -155,4 +185,24 @@ resource "aws_instance" "client" {
 
 output "client_ssh_host" {
   value = "${aws_instance.client.0.public_ip}"
+}
+
+resource "local_file" "hosts_ini" {
+  content = templatefile("${path.module}/hosts_ini.tpl",
+    {
+      broker_public_ips      = aws_instance.broker.*.public_ip
+      broker_private_ips     = aws_instance.broker.*.private_ip
+      zk_public_ips          = aws_instance.zookeeper.*.public_ip
+      zk_private_ips         = aws_instance.zookeeper.*.private_ip
+      clients_public_ips     = aws_instance.client.*.public_ip
+      clients_private_ips    = aws_instance.client.*.private_ip
+      controller_public_ips     = aws_instance.controller.*.public_ip
+      controller_private_ips    = aws_instance.controller.*.private_ip
+      broker_controller_public_ips     = aws_instance.broker_controller.*.public_ip
+      broker_controller_private_ips    = aws_instance.broker_controller.*.private_ip
+      ssh_user               = "ec2-user"
+      instance_type          = var.instance_types["kafka"]
+    }
+  )
+  filename = "${path.module}/hosts.ini"
 }
