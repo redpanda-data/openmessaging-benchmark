@@ -374,7 +374,7 @@
     - role: geerlingguy.node_exporter
       vars:
         node_exporter_enabled_collectors: [ntp]
-      when: ansible_architecture = "x86_64"
+      when: 'ansible_architecture == "x86_64"'
   tags:
     - node_exporter
 
