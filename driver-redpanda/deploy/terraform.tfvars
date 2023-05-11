@@ -1,8 +1,6 @@
 public_key_path = "~/.ssh/redpanda_aws.pub"
 region          = "us-west-2"
-az		        = "us-west-2a"
-ami             = "ami-0d31d7c9fc9503726"
-redpanda_ami    = "ami-0d31d7c9fc9503726"
+az              = "us-west-2a"
 profile         = "default"
 
 instance_types = {
