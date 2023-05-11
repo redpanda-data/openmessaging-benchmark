@@ -392,14 +392,14 @@
         grafana_dir: "{{ grafana_temp_dir.path }}"
       delegate_to: "{{ groups['redpanda'][0] }}"
       delegate_facts: True
-      when: groups.redpanda is defined
+      when: groups.redpanda is defined and groups['redpanda']
     - name: register temp path with prometheus host
       set_fact: 
         grafana_dir: "{{ grafana_temp_dir.path }}"
       delegate_to: "{{ item }}"
       delegate_facts: True 
       with_items: "{{ groups['prometheus'] }}"
-      when: groups.prometheus is defined
+      when: groups.prometheus is defined and groups['prometheus']
   tags:
     - prometheus
     - grafana
@@ -482,7 +482,7 @@
 
 - name: Install certs
   ansible.builtin.import_playbook: tls/install-certs.yml
-  when: tls_enabled| default(False)|bool == True
+  when: tls_enabled| default(False)|bool == True and groups.redpanda is defined and groups['redpanda']
   tags: tls
 
 - hosts: redpanda
