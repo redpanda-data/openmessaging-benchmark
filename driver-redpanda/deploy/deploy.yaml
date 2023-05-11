@@ -313,7 +313,7 @@
       lineinfile:
         dest: "{{ item }}"
         regexp: "^name: Redpanda"
-        line: "name: Redpanda{{ '+SASL' if sasl_enabled | default(False) | bool == True }}{{ '+TLS' if tls_enabled | default(False)|bool == True }}+{{ groups['redpanda'] | length  }}x{{ instance_type }}"
+        line: "name: Redpanda{{ '+SASL' if sasl_enabled | default(False) | bool == True }}{{ '+TLS' if tls_enabled | default(False)|bool == True }}+{{ groups['redpanda'] | length  }}x{{ instance_type | default('Unknown', true) }}"
       with_items: "{{ drivers_list.stdout_lines }}"
 
     - name: Configure Security Protocol
@@ -371,10 +371,10 @@
 - name: Install Node Exporter
   hosts: redpanda, client
   roles:
-  - geerlingguy.node_exporter
-  vars:
-  - node_exporter_enabled_collectors: [ntp]
-  when: ansible_architecture = "x86_64"
+    - role: geerlingguy.node_exporter
+      vars:
+        node_exporter_enabled_collectors: [ntp]
+      when: ansible_architecture = "x86_64"
   tags:
     - node_exporter
 
