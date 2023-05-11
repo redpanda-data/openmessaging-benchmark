@@ -1,12 +1,22 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 2.7"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 2.1"
+    }
+  }
+}
+
 provider "aws" {
   region  = var.region
-  version = "~> 2.7"
   profile = var.profile
 }
 
-provider "random" {
-  version = "~> 2.1"
-}
+provider "random" {}
 
 variable "public_key_path" {
   description = <<DESCRIPTION
@@ -29,9 +39,7 @@ variable "key_name" {
 
 variable "region" {}
 
-variable "ami" {}
-
-variable "redpanda_ami" {}
+variable "az" {}
 
 variable "profile" {}
 
@@ -72,7 +80,7 @@ resource "aws_subnet" "benchmark_subnet" {
   vpc_id                  = aws_vpc.benchmark_vpc.id
   cidr_block              = "10.0.0.0/24"
   map_public_ip_on_launch = true
-  availability_zone       = "us-west-2a"
+  availability_zone       = var.az
 }
 
 # Get public IP of this machine
@@ -105,7 +113,7 @@ resource "aws_security_group" "benchmark_security_group" {
     from_port   = 0
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["${chomp(data.http.myip.body)}/32"]
+    cidr_blocks = ["${chomp(data.http.myip.response_body)}/32"]
   }
 
   #Prometheus/Dashboard access
@@ -141,8 +149,21 @@ resource "aws_key_pair" "auth" {
   public_key = "${file(var.public_key_path)}"
 }
 
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+  owners = ["099720109477"]
+}
+
 resource "aws_instance" "redpanda" {
-  ami                    = "${var.redpanda_ami}"
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = "${var.instance_types["redpanda"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -157,7 +178,7 @@ resource "aws_instance" "redpanda" {
 }
 
 resource "aws_instance" "client" {
-  ami                    = "${var.ami}"
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = "${var.instance_types["client"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -172,7 +193,7 @@ resource "aws_instance" "client" {
 }
 
 resource "aws_instance" "prometheus" {
-  ami                    = "${var.ami}"
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = "${var.instance_types["prometheus"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
