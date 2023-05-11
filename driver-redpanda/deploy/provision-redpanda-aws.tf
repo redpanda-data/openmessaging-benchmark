@@ -2,11 +2,11 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 2.7"
+      version = "4.66.1"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 2.1"
+      version = "3.5.1"
     }
   }
 }
@@ -37,11 +37,20 @@ variable "key_name" {
   description = "Desired name prefix for the AWS key pair"
 }
 
-variable "region" {}
+variable "profile" {
+  description = "AWS authentication profile"
+}
 
-variable "az" {}
+variable "region" {
+  default     = "us-west-2"
+  description = "AWS region"
+}
 
-variable "profile" {}
+variable "az" {
+  default     = "us-west-2a"
+  description = "AWS Availability Zone"
+}
+
 
 variable "instance_types" {
   type = map
