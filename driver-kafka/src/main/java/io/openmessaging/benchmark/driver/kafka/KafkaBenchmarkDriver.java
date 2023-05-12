@@ -19,6 +19,7 @@ import java.io.StringReader;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -87,10 +88,16 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
             // List existing topics
             ListTopicsResult result = admin.listTopics();
             try {
-                Set<String> topics = result.names().get();
-                // Delete all existing topics
-                DeleteTopicsResult deletes = admin.deleteTopics(topics);
-                deletes.all().get();
+                // Find any test topics.
+                final Set<String> topics = result.names().get().stream()
+                    .filter(name -> name.startsWith(getTopicNamePrefix()))
+                    .collect(Collectors.toSet());
+
+                // Delete existing non-internal topics.
+                if (!topics.isEmpty()) {
+                    log.info("Deleting topics: " + topics);
+                    admin.deleteTopics(topics).all().get();
+                }
             } catch (ExecutionException e) {
                 if (e.getCause() instanceof UnknownTopicOrPartitionException) {
                     log.warn("Topic(s) appeared to be deleted already (race condition)");

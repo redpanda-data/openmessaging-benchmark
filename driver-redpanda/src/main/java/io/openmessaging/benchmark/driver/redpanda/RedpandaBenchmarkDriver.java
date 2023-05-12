@@ -93,9 +93,9 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
             // List existing topics
             final ListTopicsResult result = admin.listTopics();
             try {
-                // Find any non-internal topics.
+                // Find any test topics.
                 final Set<String> topics = result.names().get().stream()
-                    .filter(name -> !name.startsWith("_"))
+                    .filter(name -> name.startsWith(getTopicNamePrefix()))
                     .collect(Collectors.toSet());
 
                 // Delete existing non-internal topics.
