@@ -66,6 +66,24 @@
     loop: '{{ nvme_device_ids }}'
     when: device_info[item]["partitions"] | length == 0
 
+- name: Journal configuration changes
+  hosts:
+    - redpanda
+    - client
+  tags: server
+  tasks:
+  - block:
+    - name: Limit size of journal
+      lineinfile:
+        dest: /etc/systemd/journald.conf
+        regexp: ^SystemMaxUse=
+        line: SystemMaxUse=1000M
+    - name: restart journald
+      systemd:
+        name: systemd-journald
+        state: restarted
+
+
 - name: Format raid drives if more then 2 drives
   hosts: redpanda
   tasks:
