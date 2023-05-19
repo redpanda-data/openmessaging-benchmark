@@ -85,6 +85,29 @@
         state: restarted
       when: conf_journald.changed
 
+- name: syslog configuration changes
+  hosts:
+    - redpanda
+    - client
+  tasks:
+  - block:
+    - name: update syslog file size limits
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        insertbefore: '.*syslog'
+        line: '$outchannel mysyslog,/var/log/syslog,104857600'
+      register: conf_rsyslog_default
+    - name: update syslog path
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        regexp: '.*syslog'
+        line: '*.*;auth,authpriv.none          :omfile:$mysyslog'
+      register: conf_rsyslog_default
+    - name: restart syslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+      when: conf_rsyslog_default.changed
 
 - name: Format raid drives if more then 2 drives
   hosts: redpanda
