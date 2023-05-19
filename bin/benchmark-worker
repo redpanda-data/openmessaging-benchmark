@@ -13,10 +13,19 @@
 # limitations under the License.
 #
 
+# allow configuring of log4j levels for easier debugging
+LOG4J_CONFIG=${LOG4J_CONFIG:-/opt/benchmark/log4j2-benchmark-worker.yaml}
+
 if [ -d "./lib" ]; then
         CLASSPATH=$CLASSPATH:lib/*
 else
     CLASSPATH=benchmark-framework/target/classes:`cat benchmark-framework/target/classpath.txt`
+fi
+
+
+
+if [ -f ${LOG4J_CONFIG} ]; then
+	JAVA_OPTS="-DDlog4j.configurationFile=${LOG4J_CONFIG}"
 fi
 
 if [ -z "$HEAP_OPTS" ]
@@ -27,4 +36,4 @@ fi
 JVM_MEM="${HEAP_OPTS} -XX:+UseG1GC"
 JVM_GC_LOG=" -XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime  -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=64m  -Xloggc:/dev/shm/benchmark-client-gc_%p.log"
 
-exec java -server $KAFKA_JMX_OPTS -cp $CLASSPATH $JVM_MEM $KAFKA_OPTS io.openmessaging.benchmark.worker.BenchmarkWorker $*
+exec java -server $KAFKA_JMX_OPTS -cp $CLASSPATH $JAVA_OPTS $JVM_MEM $KAFKA_OPTS io.openmessaging.benchmark.worker.BenchmarkWorker $*
