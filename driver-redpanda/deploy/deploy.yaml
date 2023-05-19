@@ -396,10 +396,14 @@
       copy:
         src: "monitoring/jmx_exporter/jmx_prometheus_javaagent-0.13.0.jar"
         dest: "/opt/benchmark/jmx_prometheus_javaagent-0.13.0.jar"
+    - name: Setup log4j2 for benchmark-runner
+      copy:
+        src: "templates/log4j2-benchmark-runner.yaml"
+        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
     - name: Setup log4j2 for benchmark-worker
       copy:
-        src: "templates/log4j2.yaml"
-        dest: "/opt/benchmark/log4j2.yaml"
+        src: "templates/log4j2-benchmark-worker.yaml"
+        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
     - name: Configure JMX for Prometheus (Client)
       template:
         src: "monitoring/jmx_exporter/client.yml"

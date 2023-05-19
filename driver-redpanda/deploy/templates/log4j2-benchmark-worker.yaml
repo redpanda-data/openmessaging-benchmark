@@ -1,0 +1,23 @@
+Configuration:
+  status: INFO
+  name: messaging-benchmark
+
+  Appenders:
+    Console:
+      name: Console
+      target: SYSTEM_OUT
+      PatternLayout:
+        Pattern: "%d{HH:mm:ss.SSS} %c [%t] %-4level - %msg%n"
+
+  Loggers:
+    Root:
+      level: info
+      additivity: false
+      AppenderRef:
+        ref: Console
+
+
+    Logger:
+      - name: org.apache.kafka
+        level: error
+        AppenderRef: Console
