@@ -12,6 +12,23 @@
 # limitations under the License.
 #
 
+- name: Set KRaft facts
+  hosts: all
+  tasks:
+    - set_fact:
+        kraft_enabled: "{{ groups['controller'] | default([]) | length>0 | bool }}"
+      when: kraft is undefined
+      run_once: true
+    - assert:
+        that: not(kraft_enabled and (sasl_enabled|default(false)|bool))
+        msg: "SASL and KRaft cannot coexist"
+      run_once: true
+    - assert:
+        that: "(groups['controller'] | default([]) | length > 0 | bool) or (groups['zookeeper'] | default([]) | length > 0 | bool)"
+        msg: "Must specify one or more Controllers or ZooKeeper servers"
+      run_once: true
+  tags: always
+
 - name: Set sysctl for client hosts
   hosts: client
   connection: ssh
@@ -23,6 +40,10 @@
         value: '262144'
         state: present
         reload: yes
+    - name: Install tmux to aid offline running of clients
+      package:
+        name: tmux
+        state: present
     - name: Reboot the machine with all defaults
       reboot:
   tags: client
@@ -96,8 +117,8 @@
   tasks:
     - set_fact:
         zookeeperServers: "{{ groups['zookeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
-        bootstrapServers: "{{ groups['kafka'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
-        kafkaVersion: "3.2.0"
+        bootstrapServers: "{{ groups['broker'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') }}"
+        kafkaVersion: "3.4.0"
 
 - name: Kafka setup
   hosts: all
@@ -118,17 +139,19 @@
           #msg: "zookeeper servers: {{ zookeeperServers }}\nboostrap servers: {{ bootstrapServers }}"
     - name: Download Kafka package
       unarchive:
-        src: "http://archive.apache.org/dist/kafka/{{ kafkaVersion }}/kafka_2.13-{{ kafkaVersion }}.tgz"
+        src: "{{ apache_download_url | default('http://archive.apache.org/dist/kafka/') }}{{ kafkaVersion }}/kafka_2.13-{{ kafkaVersion }}.tgz"
         remote_src: yes
         dest: /opt/kafka
         extra_opts: ["--strip-components=1"]
+      retries: 5
+      delay: 10
     - set_fact:
         privateIp: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
     - name: Change locale to en_US.utf-8
       shell: |
         echo 'LANG=en_US.utf-8
               LC_ALL=en_US.utf-8' > /etc/environment
-  tags: kafka
+  tags: download
 
 - name: Create CA
   ansible.builtin.import_playbook: tls/create-ca.yml
@@ -197,7 +220,14 @@
   become: true
   tasks:
     - set_fact:
+        privateIp: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+    - set_fact:
         brokerId: "{{ groups['kafka'].index(inventory_hostname) }}"
+    - shell:
+         cmd: "/opt/kafka/bin/kafka-storage.sh random-uuid"
+      run_once: true
+      register: storage_id
+      when: kraft_enabled | default(False) | bool == True
     - name: Set up broker
       template:
         src: "templates/server.properties"
@@ -205,31 +235,32 @@
     - template:
         src: "templates/kafka.service"
         dest: "/etc/systemd/system/kafka.service"
+    - name: Populate client config file
+      template:
+        src: "templates/client.properties"
+        dest: "/opt/kafka/config/client.properties"
+    - name: Initialise Storage
+      shell:
+        cmd: "/opt/kafka//bin/kafka-storage.sh format -t {{ storage_id.stdout }} -c /opt/kafka/config/server.properties" 
+      register: result
+      failed_when:
+        - result.rc != 0
+        - '"is already formatted" not in result.stderr'
+      when: kraft_enabled | default(False) | bool == True
     - systemd:
         state: restarted
         daemon_reload: yes
         name: "kafka"
-  tags: kafka
+  tags: 
+    - kafka
+    - init
 
 - name: Setup ACLs
   hosts: kafka
   tasks:
-    - name: Create client config file
-      ansible.builtin.tempfile:
-        state: file
-        suffix: temp
-      register: tempfile_1
-      when: sasl_enabled| default(False)|bool == True
-
-    - name: Populate client config file
-      template:
-        src: "templates/client.properties"
-        dest: "{{ tempfile_1.path }}"
-      when: sasl_enabled| default(False)|bool == True
-
     - name: Create ACLs
       command:
-        cmd: "/opt/kafka/bin/kafka-acls.sh --bootstrap-server {{ bootstrapServers }} --command-config {{ tempfile_1.path }} {{ item }}"
+        cmd: "/opt/kafka/bin/kafka-acls.sh --bootstrap-server {{ bootstrapServers }} --command-config /opt/kafka/config/client.properties {{ item }}"
       loop:
         - "--add --allow-principal User:sa_test --operation create  --cluster"
         - "--add --allow-principal User:sa_test --operation read --operation write --operation create  --operation delete --operation describe --topic '*'"
@@ -311,16 +342,15 @@
       lineinfile:
         dest: "{{ item }}"
         regexp: "^name: Kafka"
-        line: "name: Kafka{{ '+SASL' if sasl_enabled | default(False) }}{{ '+TLS' if tls_enabled | default(False) }}"
+        line: "name: Kafka{{ '+SASL' if sasl_enabled | default(False) | bool }}{{ '+KRAFT' if kraft_enabled | default(False) | bool }}{{ '+TLS' if tls_enabled | default(False) | bool }}+{{ groups['broker'] | length  }}x{{ instance_type }}"
       with_items: "{{ drivers_list.stdout_lines }}"
-      when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
 
     - name: Configure Security Protocol
       lineinfile:
         dest: "{{ item }}"
         regexp: "^  security.protocol="
         insertafter: "^  bootstrap.servers="
-        line: "  security.protocol={{ 'SASL_' if sasl_enabled | default(False) }}{{ 'SSL' if tls_enabled | default(False) else 'PLAINTEXT' }}"
+        line: "  security.protocol={{ 'SASL_' if sasl_enabled | default(False) | bool }}{{ 'SSL' if tls_enabled | default(False) | bool else 'PLAINTEXT' }}"
       with_items: "{{ drivers_list.stdout_lines }}"
       when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
 
