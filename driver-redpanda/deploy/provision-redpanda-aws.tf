@@ -36,7 +36,7 @@ variable "key_name" {
 
 variable "region" {}
 
-variable "ami" {}
+#variable "ami" {}
 
 variable "profile" {
   default = null
