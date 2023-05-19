@@ -222,7 +222,7 @@ if __name__ == "__main__":
         #         sum(data['publishRate'])/len(data['publishRate']))
         pub_rate_avg["Throughput (MB/s)"].append(
             {
-                'value': (sum(data['publishRate'])/len(data['publishRate']) * 1024)/(1024.0 * 1024.0),
+                'value': (sum(data['publishRate'])/len(data['publishRate']) * data['messageSize'])/(1024.0 * 1024.0),
                 'color': colors[count]
             })
         count = count + 1

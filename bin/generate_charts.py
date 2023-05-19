@@ -287,7 +287,7 @@ def generate_charts(files):
             stat_e2e_lat_avg.append(data['endToEndLatencyAvg'])
             stat_e2e_lat_p50.append(data['endToEndLatency50pct'])
             drivers.append(data['name'])
-            throughput = (sum(data['publishRate']) / len(data['publishRate']) * 1024) / (1024.0 * 1024.0)
+            throughput = (sum(data['publishRate']) / len(data['publishRate']) * data['messageSize']) / (1024.0 * 1024.0)
             pub_rate_avg["Throughput (MB/s): higher is better"].append({
                 'value': throughput,
                 'color': graph_colors[count % len(graph_colors)]
