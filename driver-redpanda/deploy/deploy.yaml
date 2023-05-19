@@ -74,14 +74,16 @@
   tasks:
   - block:
     - name: Limit size of journal
-      lineinfile:
+      ansible.builtin.lineinfile:
         dest: /etc/systemd/journald.conf
         regexp: ^SystemMaxUse=
         line: SystemMaxUse=1000M
+      register: conf_journald
     - name: restart journald
-      systemd:
+      ansible.builtin.systemd:
         name: systemd-journald
         state: restarted
+      when: conf_journald.changed
 
 
 - name: Format raid drives if more then 2 drives
