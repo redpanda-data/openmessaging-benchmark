@@ -15,3 +15,6 @@ ${control_public_ips[0]} ansible_user=${ ssh_user } ansible_become=True private_
 %{ for i, ip in prometheus_host_public_ips ~}
 ${ ip } ansible_user=${ ssh_user } ansible_become=True private_ip=${prometheus_host_private_ips[i]} id=${i}
 %{ endfor ~}
+
+[all:vars]
+instance_type=${instance_type}

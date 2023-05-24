@@ -374,7 +374,11 @@
   - geerlingguy.node_exporter
   vars:
   - node_exporter_enabled_collectors: [ntp]
-  when: ansible_architecture = "x86_64"
+  - dist_architecture: {
+      "aarch64": "arm64",
+      "x86_64": "amd64"
+    }
+  - node_exporter_arch: "{{ [ansible_architecture] | map('extract', dist_architecture) | first }}"
   tags:
     - node_exporter
 
