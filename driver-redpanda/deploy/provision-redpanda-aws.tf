@@ -265,6 +265,7 @@ resource "local_file" "hosts_ini" {
       prometheus_host_private_ips  = aws_instance.prometheus.*.private_ip
       control_public_ips   = aws_instance.client.*.public_ip
       control_private_ips  = aws_instance.client.*.private_ip
+      instance_type	   = var.instance_types["redpanda"]
       ssh_user              = "ubuntu"
     }
   )
