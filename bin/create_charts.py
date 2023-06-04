@@ -34,6 +34,32 @@ def create_charts(test_results):
         print('Generating charts for', workload)
         workload = workload.replace('/', '-')
 
+        if len(results) == 1:
+            # if we aren't comparing between two sets of results, we have the dimensions
+            # available to make a chart which shows various latencies on a single chart
+
+            result = results[0]
+
+            all_pct = ('50', '75', '95', '99', '999')
+            less_pct = ('50', '75', '99')
+
+            specs = [('Publish Latency', 'publishLatency', 1, all_pct),
+                     ('End To End Latency', 'endToEndLatency', 1, all_pct),
+                     ('Publish Delay', 'publishDelayLatency', 1000, all_pct),
+                     ('Enqueue Latency', 'scheduleLatency', 1, less_pct)]
+
+            for name, field, divisor_for_ms, pcts in specs:
+                time_series = []
+                for pct in pcts:
+                    results_as_ms = [
+                        r / divisor_for_ms for r in result[f'{field}{pct}pct']
+                    ]
+                    time_series.append((f'p{pct}', results_as_ms))
+                create_chart(workload,
+                             f'{name} Percentiles Over Time',
+                             y_label=f'Latency (ms)',
+                             time_series=time_series)
+
         create_chart(workload, 'Publish latency 99pct',
                      y_label='Latency (ms)',
                      time_series=[(x['driver'], x['publishLatency99pct']) for x in results])
