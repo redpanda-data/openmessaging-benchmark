@@ -496,23 +496,7 @@ public class WorkloadGenerator implements AutoCloseable {
             result.endToEndLatencyMax.add(microsToMillis(stats.endToEndLatency.getMaxValue()));
 
             if (now >= testEndTime && !needToWaitForBacklogDraining) {
-                boolean complete = false;
-                int retry = 0;
-                CumulativeLatencies agg = null;
-                do {
-                    try {
-                        agg = worker.getCumulativeLatencies();
-                    } catch (Exception e) {
-                        log.info("Retrying");
-                        retry++;
-                        continue;
-                    }
-                    complete = true;
-                } while (!complete && retry < 10);
-
-                if (!complete) {
-                    throw new RuntimeException("Failed to collect aggregate latencies");
-                }
+                CumulativeLatencies agg = worker.getCumulativeLatencies();;
 
                 log.info(
                         "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {} | Pub Delay (us)  avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",
