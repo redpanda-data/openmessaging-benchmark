@@ -1,0 +1,25 @@
+Configuration:
+  status: INFO
+  name: messaging-benchmark
+
+  Appenders:
+    Console:
+      name: Console
+      target: SYSTEM_OUT
+      PatternLayout:
+        Pattern: "%d{HH:mm:ss.SSS} %c [%t] %-4level - %msg%n"
+
+  Loggers:
+    Root:
+      level: info
+      additivity: false
+      AppenderRef:
+        ref: Console
+
+# reduce org.apache.kafka to error level as info/warn can be entirely
+# too verbose and trigger the filesystem to fill with logs. When debugging
+# lower this down to warn or info as necessary
+    Logger:
+      - name: org.apache.kafka
+        level: error
+        AppenderRef: Console

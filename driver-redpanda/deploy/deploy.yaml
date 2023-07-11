@@ -66,6 +66,49 @@
     loop: '{{ nvme_device_ids }}'
     when: device_info[item]["partitions"] | length == 0
 
+- name: Journal configuration changes
+  hosts:
+    - redpanda
+    - client
+  tags: server
+  tasks:
+  - block:
+    - name: Limit size of journal
+      ansible.builtin.lineinfile:
+        dest: /etc/systemd/journald.conf
+        regexp: ^SystemMaxUse=
+        line: SystemMaxUse=1000M
+      register: conf_journald
+    - name: restart journald
+      ansible.builtin.systemd:
+        name: systemd-journald
+        state: restarted
+      when: conf_journald.changed
+
+- name: syslog configuration changes
+  hosts:
+    - redpanda
+    - client
+  tasks:
+  - block:
+    - name: update syslog file size limits
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        insertbefore: '.*syslog'
+        line: '$outchannel mysyslog,/var/log/syslog,104857600'
+      register: conf_rsyslog_default
+    - name: update syslog path
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        regexp: '.*syslog'
+        line: '*.*;auth,authpriv.none          :omfile:$mysyslog'
+      register: conf_rsyslog_default
+    - name: restart syslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+      when: conf_rsyslog_default.changed
+
 - name: Format raid drives if more then 2 drives
   hosts: redpanda
   tasks:
@@ -339,7 +382,7 @@
       with_items: "{{ drivers_list.stdout_lines }}"
       when: sasl_enabled| default(False)|bool == True
 
-    - name: Configure memory
+    - name: Configure memory benchmark-worker
       lineinfile:
         dest: /opt/benchmark/bin/benchmark-worker
         regexp: "^JVM_MEM="
@@ -353,6 +396,14 @@
       copy:
         src: "monitoring/jmx_exporter/jmx_prometheus_javaagent-0.13.0.jar"
         dest: "/opt/benchmark/jmx_prometheus_javaagent-0.13.0.jar"
+    - name: Setup log4j2 for benchmark-runner
+      copy:
+        src: "templates/log4j2-benchmark-runner.yaml"
+        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
+    - name: Setup log4j2 for benchmark-worker
+      copy:
+        src: "templates/log4j2-benchmark-worker.yaml"
+        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
     - name: Configure JMX for Prometheus (Client)
       template:
         src: "monitoring/jmx_exporter/client.yml"

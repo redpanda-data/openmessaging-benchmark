@@ -13,6 +13,13 @@
 # limitations under the License.
 #
 
+# allow configuring of log4j levels for easier debugging
+LOG4J_CONFIG=${LOG4J_CONFIG:-/opt/benchmark/log4j2-benchmark-runner.yaml}
+
+if [ -f ${LOG4J_CONFIG} ]; then
+       JAVA_OPTS="-DDlog4j.configurationFile=${LOG4J_CONFIG}"
+fi
+
 # https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
 SOURCE=${BASH_SOURCE[0]}
 while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -36,4 +43,4 @@ fi
 JVM_MEM="${HEAP_OPTS} -XX:+UseG1GC"
 JVM_GC_LOG=" -XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime  -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=64m  -Xloggc:/dev/shm/benchmark-client-gc_%p.log"
 
-java -server -cp $CLASSPATH $JVM_MEM io.openmessaging.benchmark.Benchmark $*
+java -server -cp $CLASSPATH $JAVA_OPTS $JVM_MEM io.openmessaging.benchmark.Benchmark $*
