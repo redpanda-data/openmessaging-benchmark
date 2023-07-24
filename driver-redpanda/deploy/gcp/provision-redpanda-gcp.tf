@@ -176,6 +176,10 @@ output "public_key_path" {
   value = var.public_key_path
 }
 
+output "client_ssh_host" {
+  value = "${google_compute_instance.client[0].network_interface.0.access_config.0.nat_ip}"
+}
+
 variable "region" {
   default = "us-west2"
 }
