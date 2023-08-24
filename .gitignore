@@ -2,6 +2,7 @@
 .project
 .settings
 .pydevproject
+.vim
 target
 /.metadata/
 *.pyc
