@@ -32,6 +32,10 @@ public class Workload {
      * new topics. If this is list is non-empty, topics must be zero.
      */
     public List<String> existingTopicList = Collections.emptyList();
+    /** producer only `existingTopicList`. */
+    public List<String> existingProduceTopicList = Collections.emptyList();
+    /** consumer only `existingTopicList`. */
+    public List<String> existingConsumeTopicList = Collections.emptyList();
 
     /** Number of partitions each topic will contain */
     public int partitionsPerTopic;
@@ -82,14 +86,20 @@ public class Workload {
         checkNonNegative(producerRate, "producerRate");
         checkNonNegative(consumerBacklogSizeGB, "consumerBacklogSizeGB");
 
-        if (topics > 0 && !existingTopicList.isEmpty()) {
+        boolean usingExistingTopics = !existingTopicList.isEmpty() || !existingConsumeTopicList.isEmpty() || !existingProduceTopicList.isEmpty();
+
+        if (topics > 0 && usingExistingTopics) {
             throw new RuntimeException(String.format(
                 "Workload specified both non-zero topic count (%d) and explicit topic list: these options " +
                 "are mutually incompatible.", topics));
         }
 
-        if (topics == 0 && existingTopicList.isEmpty()) {
+        if (topics == 0 && !usingExistingTopics) {
             throw new RuntimeException("The workload must specify non-zero topics or a non-empty existingTopicList");
+        }
+
+        if (existingTopicList.isEmpty() && (existingConsumeTopicList.isEmpty() != existingProduceTopicList.isEmpty())) {
+            throw new RuntimeException("The workload must specify a non-empty existingTopicList");
         }
     }
 
