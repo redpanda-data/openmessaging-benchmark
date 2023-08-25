@@ -72,8 +72,13 @@ public class WorkloadGenerator implements AutoCloseable {
         List<String> topics = worker.createOrValidateTopics(ti);
         log.info("{} {} topics in {} ms", ti.isExistingTopics() ? "Validated" : "Created", topics.size(), timer.elapsedMillis());
 
-        createConsumers(topics);
-        createProducers(topics);
+        if (ti.isExistingTopics()) {
+          createProducers(ti.existingProduceTopics);
+          createConsumers(ti.existingConsumeTopics);
+        } else {
+          createConsumers(topics);
+          createProducers(topics);
+        }
 
         ensureTopicsAreReady();
 
@@ -162,11 +167,10 @@ public class WorkloadGenerator implements AutoCloseable {
         // the data
         worker.probeProducers();
 
-	    long start = System.currentTimeMillis();
+        long start = System.currentTimeMillis();
         long end = start + 60 * 1000;
         while (System.currentTimeMillis() < end) {
             CountersStats stats = worker.getCountersStats();
-
             if (stats.messagesReceived < expectedMessages) {
                 try {
                     Thread.sleep(100);
@@ -180,8 +184,7 @@ public class WorkloadGenerator implements AutoCloseable {
 
         if (System.currentTimeMillis() >= end) {
             log.warn("Timed out waiting for consumers to be ready");
-        }
-        else {
+        } else {
             log.info("All consumers are ready");
         }
     }

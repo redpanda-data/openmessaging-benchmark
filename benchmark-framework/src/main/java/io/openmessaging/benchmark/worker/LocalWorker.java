@@ -155,7 +155,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         boolean useExisting = topicsInfo.isExistingTopics();
 
         if (useExisting) {
-            for (String topicName : topicsInfo.existingTopics) {
+            for (String topicName : topicsInfo.allExistingTopics()) {
                 if (!benchmarkDriver.validateTopicExists(topicName).join()) {
                     throw new RuntimeException(String.format("Topic specified in workload does not exist: %s",
                         topicName));

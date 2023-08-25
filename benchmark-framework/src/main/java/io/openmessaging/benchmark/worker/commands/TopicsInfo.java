@@ -13,6 +13,7 @@
  */
 package io.openmessaging.benchmark.worker.commands;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,9 +27,11 @@ public class TopicsInfo {
     public int numberOfTopics;
     public int numberOfPartitionsPerTopic;
 
-    /** If this is non-empty, the properties above are zero and vice-versa. */
+    /** If the following arg non-empty, the properties above are zero and vice-versa. */
     @JsonProperty
-    public List<String> existingTopics = Collections.emptyList();
+    public List<String> existingProduceTopics = Collections.emptyList();
+    @JsonProperty
+    public List<String> existingConsumeTopics = Collections.emptyList();
 
     public TopicsInfo() {
     }
@@ -38,16 +41,27 @@ public class TopicsInfo {
         this.numberOfPartitionsPerTopic = numberOfPartitionsPerTopic;
     }
 
-    public TopicsInfo(List<String> existingTopics) {
-        Preconditions.checkArgument(existingTopics != null);
-        Preconditions.checkArgument(!existingTopics.isEmpty());
-        this.existingTopics = existingTopics;
+    public TopicsInfo(List<String> existingProduceTopics, List<String> existingConsumeTopics) {
+        Preconditions.checkNotNull(existingProduceTopics);
+        Preconditions.checkNotNull(existingConsumeTopics);
+        Preconditions.checkArgument(!existingProduceTopics.isEmpty());
+        Preconditions.checkArgument(!existingConsumeTopics.isEmpty());
+        this.existingProduceTopics = existingProduceTopics;
+        this.existingConsumeTopics = existingConsumeTopics;
     }
 
     /** @return true iff existing topics are to be used  */
     @JsonIgnore
     public boolean isExistingTopics() {
-        return !existingTopics.isEmpty();
+        return !allExistingTopics().isEmpty();
+    }
+
+    @JsonIgnore
+    public List<String> allExistingTopics() {
+      List<String> combined = new ArrayList<>();
+      combined.addAll(existingProduceTopics);
+      combined.addAll(existingConsumeTopics);
+      return combined;
     }
 
     /**
@@ -57,11 +71,16 @@ public class TopicsInfo {
      */
     public static TopicsInfo fromWorkload(Workload w) {
         Preconditions.checkNotNull(w);
-        Preconditions.checkArgument(w.topics > 0 ^ !w.existingTopicList.isEmpty());
+        boolean usingExistingTopics = !w.existingTopicList.isEmpty() || !w.existingConsumeTopicList.isEmpty() || !w.existingProduceTopicList.isEmpty();
+        Preconditions.checkArgument(w.topics > 0 != usingExistingTopics);
         if (w.topics > 0) {
             return new TopicsInfo(w.topics, w.partitionsPerTopic);
         } else {
-            return new TopicsInfo(w.existingTopicList);
+            List<String> consume = new ArrayList<>(w.existingTopicList);
+            consume.addAll(w.existingConsumeTopicList);
+            List<String> produce = new ArrayList<>(w.existingTopicList);
+            produce.addAll(w.existingProduceTopicList);
+            return new TopicsInfo(produce, consume);
         }
     }
 }
