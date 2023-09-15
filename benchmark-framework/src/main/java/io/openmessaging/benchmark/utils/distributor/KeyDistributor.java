@@ -15,6 +15,7 @@ package io.openmessaging.benchmark.utils.distributor;
 
 import com.google.common.io.BaseEncoding;
 
+import java.nio.ByteBuffer;
 import java.util.Random;
 
 public abstract class KeyDistributor {
@@ -22,7 +23,7 @@ public abstract class KeyDistributor {
     private static final int UNIQUE_COUNT = 10_000;
     private static final int KEY_BYTE_SIZE = 7;
 
-    private static final String[] randomKeys = new String[UNIQUE_COUNT];
+    private static final ByteBuffer[] randomKeys = new ByteBuffer[UNIQUE_COUNT];
     private static final Random random = new Random();
 
     static {
@@ -30,12 +31,17 @@ public abstract class KeyDistributor {
         byte[] buffer = new byte[KEY_BYTE_SIZE];
         for (int i = 0; i < randomKeys.length; i++) {
             random.nextBytes(buffer);
-            randomKeys[i] = BaseEncoding.base64Url().omitPadding().encode(buffer);
+            randomKeys[i] = ByteBuffer.allocate(buffer.length);
+            randomKeys[i].put(buffer);
         }
     }
 
     protected String get(int index) {
-        return randomKeys[index];
+        return BaseEncoding.base64Url().omitPadding().encode(randomKeys[index].array());
+    }
+
+    protected byte[] getBytes(int index) {
+        return randomKeys[index].array();
     }
 
     protected int getLength() {
@@ -43,6 +49,8 @@ public abstract class KeyDistributor {
     }
 
     public abstract String next();
+
+    public abstract byte[] nextBytes();
 
     public static KeyDistributor build(KeyDistributorType keyType) {
         KeyDistributor keyDistributor = null;

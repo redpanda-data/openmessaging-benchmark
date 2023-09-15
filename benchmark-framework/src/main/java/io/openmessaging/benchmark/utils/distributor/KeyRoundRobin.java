@@ -27,4 +27,12 @@ public class KeyRoundRobin extends KeyDistributor {
         }
         return get(currentIndex);
     }
+
+    @Override
+    public byte[] nextBytes() {
+        if (++currentIndex >= getLength()) {
+            currentIndex = 0;
+        }
+        return getBytes(currentIndex);
+    }
 }

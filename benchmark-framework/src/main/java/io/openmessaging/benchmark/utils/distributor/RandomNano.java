@@ -22,4 +22,10 @@ public class RandomNano extends KeyDistributor {
         int randomIndex = Math.abs((int) System.nanoTime() % getLength());
         return get(randomIndex);
     }
+
+    @Override
+    public byte[] nextBytes() {
+        return new byte[0];
+    }
+
 }
