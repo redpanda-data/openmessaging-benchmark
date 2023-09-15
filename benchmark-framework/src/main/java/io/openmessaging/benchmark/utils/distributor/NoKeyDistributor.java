@@ -17,7 +17,6 @@ import java.nio.ByteBuffer;
 
 public class NoKeyDistributor extends KeyDistributor {
 
-    final static ByteBuffer buffer = ByteBuffer.wrap(new byte[] { 0 });
     @Override
     public String next() {
         return null;
@@ -25,6 +24,6 @@ public class NoKeyDistributor extends KeyDistributor {
 
     @Override
     public byte[] nextBytes() {
-        return buffer.array();
+        return null;
     }
 }

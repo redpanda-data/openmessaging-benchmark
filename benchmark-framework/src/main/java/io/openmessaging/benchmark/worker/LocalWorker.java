@@ -236,7 +236,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
                         final long intendedSendTime = rateLimiter.acquire();
                         uninterruptibleSleepNs(intendedSendTime);
                         final long sendTime = System.nanoTime();
-                        CompletableFuture<Void> f = producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData);
+                        CompletableFuture<Void> f = producer.sendAsync(keyDistributor.nextBytes(), payloadData);
                         long scheduleMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
                         scheduleLatencyRecorder.recordValue(scheduleMicros);
                         cumulativeScheduleLatencyRecorder.recordValue(scheduleMicros);

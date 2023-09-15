@@ -18,6 +18,8 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 public class RandomNano extends KeyDistributor {
 
+    private final int len = getLength();
+
     public String next() {
         int randomIndex = Math.abs((int) System.nanoTime() % getLength());
         return get(randomIndex);
@@ -25,7 +27,8 @@ public class RandomNano extends KeyDistributor {
 
     @Override
     public byte[] nextBytes() {
-        return new byte[0];
+        int randomIndex = (int) System.nanoTime() & Integer.MAX_VALUE;
+        return getBytes(randomIndex % len);
     }
 
 }

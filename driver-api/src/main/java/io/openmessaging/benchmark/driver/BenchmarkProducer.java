@@ -13,6 +13,8 @@
  */
 package io.openmessaging.benchmark.driver;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,4 +31,8 @@ public interface BenchmarkProducer extends AutoCloseable {
      */
     CompletableFuture<Void> sendAsync(Optional<String> key, byte[] payload);
 
+    default CompletableFuture<Void> sendAsync(byte[] key, byte[] payload) {
+        final Optional<String> stringKey = Optional.of(StandardCharsets.UTF_8.decode(ByteBuffer.wrap(key)).toString());
+        return sendAsync(stringKey, payload);
+    }
 }
