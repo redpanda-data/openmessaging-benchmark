@@ -31,4 +31,6 @@ public enum KeyDistributorType {
      * Random distribution based on System.nanoTime()
      */
     RANDOM_NANO,
+
+    INCREMENTING_KEY,
 }

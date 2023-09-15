@@ -56,6 +56,9 @@ public abstract class KeyDistributor {
             case RANDOM_NANO:
                 keyDistributor = new RandomNano();
                 break;
+            case INCREMENTING_KEY:
+                keyDistributor = new IncrementingKey();
+                break;
         }
         return keyDistributor;
     }
