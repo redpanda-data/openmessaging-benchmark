@@ -15,7 +15,7 @@ public class KeyDistributorTest {
   @Test
   public void benchmarkKeyDistributors() {
     final Map<KeyDistributorType, Long> results = new HashMap<>();
-    System.out.println("Using test iterations of: " + ITERATIONS);
+    System.out.printf("Using test iterations of: %,d\n", ITERATIONS);
 
     for (KeyDistributorType keyType : KeyDistributorType.values()) {
       KeyDistributor distributor = KeyDistributor.build(keyType);
@@ -34,8 +34,8 @@ public class KeyDistributorTest {
     System.out.printf("%-20s %-20s %-20s\n", "Key Distributor", "Duration (s)", "Rate (calls/s)");
     results.forEach((k, v) -> {
       float seconds = v / 1e9f;
-      float rate = ITERATIONS / seconds;
-      System.out.printf("%-20s %-20f %-20f\n", k, seconds, rate);
+      long rate = (long) (ITERATIONS / seconds);
+      System.out.printf("%-20s %,-20f %,-20d\n", k, seconds, rate);
     });
   }
 }
