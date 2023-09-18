@@ -13,7 +13,6 @@
  */
 package io.openmessaging.benchmark.utils.distributor;
 
-
 public class NoKeyDistributor extends KeyDistributor {
 
     @Override
