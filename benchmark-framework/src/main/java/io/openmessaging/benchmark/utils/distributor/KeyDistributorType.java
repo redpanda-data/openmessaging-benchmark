@@ -23,7 +23,7 @@ public enum KeyDistributorType {
     NO_KEY,
 
     /**
-     * Genarate a finite number of "keys" and cycle through them in round-robin fashion
+     * Generate a finite number of "keys" and cycle through them in round-robin fashion
      */
     KEY_ROUND_ROBIN,
 
@@ -32,5 +32,9 @@ public enum KeyDistributorType {
      */
     RANDOM_NANO,
 
+    /**
+     * Generates incrementing key values (eventually wrapping after 2^32-1 iterations),
+     * relying on producer to decide on distribution scheme.
+     */
     INCREMENTING_KEY,
 }

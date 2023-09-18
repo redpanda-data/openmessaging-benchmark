@@ -1,5 +1,6 @@
 package io.openmessaging.benchmark.utils.distributor;
 
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -17,7 +18,7 @@ public class KeyDistributorTest {
    * Microbenchmark for the {@link KeyDistributor} implementations. Calls `.next()` in a tight loop.
    */
   @Test
-  @Ignore("slow test")
+  @Ignore("Slow test.")
   public void benchmarkKeyDistributors() {
     final Map<KeyDistributorType, Long> results = new HashMap<>();
     System.out.printf("Using test iterations of: %,d\n", ITERATIONS);
@@ -50,7 +51,7 @@ public class KeyDistributorTest {
   }
 
   @Test
-  @Ignore("slow test")
+  @Ignore("Slow test.")
   public void benchmarkByteArrayKeyDistributors() {
     final Map<KeyDistributorType, Long> results = new HashMap<>();
     System.out.printf("Using test iterations of: %,d\n", ITERATIONS);
@@ -83,15 +84,17 @@ public class KeyDistributorTest {
   }
 
   @Test
-  @Ignore("slow test")
+  @Ignore("Slow test.")
   public void testRandNanoKeyCoverage() {
-    RandomNano rn = new RandomNano();
-    Set<Integer> set = new HashSet<>();
+    final RandomNano rn = new RandomNano();
+    final Set<Integer> set = new HashSet<>();
 
     for (long i = 0; i < ITERATIONS; i++) {
       set.add(ByteBuffer.wrap(rn.nextBytes()).getInt());
     }
 
     System.out.println("Set cardinality: " + set.size());
+    Assert.assertTrue("should produce better than 80% coverage",
+        set.size() > 0.8 * rn.getLength());
   }
 }

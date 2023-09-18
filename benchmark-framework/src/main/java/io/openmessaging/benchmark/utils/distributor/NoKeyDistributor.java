@@ -13,7 +13,6 @@
  */
 package io.openmessaging.benchmark.utils.distributor;
 
-import java.nio.ByteBuffer;
 
 public class NoKeyDistributor extends KeyDistributor {
 

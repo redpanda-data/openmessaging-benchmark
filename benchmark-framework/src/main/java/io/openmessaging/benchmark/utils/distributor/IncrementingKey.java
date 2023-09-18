@@ -4,10 +4,9 @@ import java.nio.ByteBuffer;
 
 public class IncrementingKey extends KeyDistributor {
 
-  int value = 0;
-  final int len = getLength(); // This never changes in the parent class?
+  private int value = 0;
 
-  final ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE);
+  private final ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE);
 
   @Override
   public String next() {
