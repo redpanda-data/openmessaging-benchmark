@@ -13,7 +13,6 @@
  */
 package io.openmessaging.benchmark.driver;
 
-import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
