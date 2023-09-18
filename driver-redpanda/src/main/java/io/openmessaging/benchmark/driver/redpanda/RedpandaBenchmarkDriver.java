@@ -76,13 +76,13 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
         producerProperties = new Properties();
         commonProperties.forEach((key, value) -> producerProperties.put(key, value));
         producerProperties.load(new StringReader(config.producerConfig));
-        producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
 
         consumerProperties = new Properties();
         commonProperties.forEach((key, value) -> consumerProperties.put(key, value));
         consumerProperties.load(new StringReader(config.consumerConfig));
-        consumerProperties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        consumerProperties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         consumerProperties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
 
         topicProperties = new Properties();
@@ -184,7 +184,7 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
         Properties properties = new Properties();
         consumerProperties.forEach((key, value) -> properties.put(key, value));
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscriptionName);
-        KafkaConsumer<String, byte[]> kafkaConsumer = new KafkaConsumer<>(properties);
+        KafkaConsumer<byte[], byte[]> kafkaConsumer = new KafkaConsumer<>(properties);
         try {
             // Subscribe
             kafkaConsumer.subscribe(Arrays.asList(topic));
