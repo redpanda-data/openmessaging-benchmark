@@ -76,7 +76,7 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
         producerProperties = new Properties();
         commonProperties.forEach((key, value) -> producerProperties.put(key, value));
         producerProperties.load(new StringReader(config.producerConfig));
-        producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
 
         consumerProperties = new Properties();
