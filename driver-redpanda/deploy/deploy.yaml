@@ -20,7 +20,7 @@
 - name: Setup common packages on Redhat based systems
   hosts: all
   connection: ssh
-  become: true
+  become: false
   tasks:
     - name: Remove sysstat
       package:
@@ -170,7 +170,7 @@
   tags: client
   tasks:
     - set_fact:
-        bootstrapServers: "{{ groups['redpanda'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') | default(bootstrapServers) }}"
+        bootstrapServers: "seed-316272b8.ckj5ite3demu3ii036k0.byoc.ign.cloud.redpanda.com:9092"
       when: bootstrapServers is not defined
 
 - name: install redpanda
@@ -287,7 +287,7 @@
 - name: Chrony setup
   hosts: client
   connection: ssh
-  become: true
+  become: false
   tasks:
     - name: Set chrony path
       when: ansible_os_family == 'RedHat'
@@ -321,7 +321,7 @@
 - name: Setup Benchmark client
   hosts: client
   connection: ssh
-  become: true
+  become: false
   tags: client
   tasks:
       # value for 50G java heap, adjust upwards as necessary when benchmark-worker complains
@@ -386,12 +386,12 @@
       lineinfile:
         dest: /opt/benchmark/bin/benchmark-worker
         regexp: "^JVM_MEM="
-        line: 'JVM_MEM="-Xms50G -Xmx50G -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ParallelRefProcEnabled -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=12 -XX:ConcGCThreads=12 -XX:+DisableExplicitGC -XX:-ResizePLAB"'
+        line: 'JVM_MEM="-Xms2G -Xmx2G -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ParallelRefProcEnabled -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=12 -XX:ConcGCThreads=12 -XX:+DisableExplicitGC -XX:-ResizePLAB"'
     - name: Configure memory
       lineinfile:
         dest: /opt/benchmark/bin/benchmark
         regexp: "^JVM_MEM="
-        line: 'JVM_MEM="-Xmx4G"'
+        line: 'JVM_MEM="-Xmx2G"'
     - name: Setup JMX for Producer/Consumer clients
       copy:
         src: "monitoring/jmx_exporter/jmx_prometheus_javaagent-0.13.0.jar"
@@ -423,46 +423,6 @@
         daemon_reload: yes
         name: "benchmark-worker"
 
-# Install the monitoring stack
-- name: Install Node Exporter
-  hosts: redpanda, client
-  roles:
-  - geerlingguy.node_exporter
-  vars:
-  - node_exporter_enabled_collectors: [ntp]
-  - dist_architecture: {
-      "aarch64": "arm64",
-      "x86_64": "amd64"
-    }
-  - node_exporter_arch: "{{ [ansible_architecture] | map('extract', dist_architecture) | first }}"
-  tags:
-    - node_exporter
-
-- name: create a local tmp directory
-  hosts: localhost
-  become: false
-  tasks:
-    - name: create a local temp directory
-      tempfile: 
-        state: directory
-        suffix: grafana
-      register: grafana_temp_dir
-    - name: register temp path with redpanda host
-      set_fact: 
-        grafana_dir: "{{ grafana_temp_dir.path }}"
-      delegate_to: "{{ groups['redpanda'][0] }}"
-      delegate_facts: True
-      when: groups.redpanda is defined
-    - name: register temp path with prometheus host
-      set_fact: 
-        grafana_dir: "{{ grafana_temp_dir.path }}"
-      delegate_to: "{{ item }}"
-      delegate_facts: True 
-      with_items: "{{ groups['prometheus'] }}"
-      when: groups.prometheus is defined
-  tags:
-    - prometheus
-    - grafana
 
 - hosts: redpanda[0]
   tasks:

@@ -16,14 +16,13 @@
 name: Simple Workload 1 producer on 1 topic
 
 topics: 1
-partitionsPerTopic: 10
+partitionsPerTopic: 256
 messageSize: 1024
 payloadFile: "payload/payload-1Kb.data"
-subscriptionsPerTopic: 1
-producersPerTopic: 1
-consumerPerSubscription: 1
-producerRate: 10000
+subscriptionsPerTopic: 0
+producersPerTopic: 2
+consumerPerSubscription: 0
+producerRate: 200000
 consumerBacklogSizeGB: 0
-testDurationMinutes: 5
-
-
+warmupDurationMinutes: 0
+testDurationMinutes: 60

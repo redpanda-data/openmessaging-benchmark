@@ -24,12 +24,16 @@ driverClass: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
 
 # Kafka client-specific configuration
 replicationFactor: 3
-reset: true
+reset: false
 
 topicConfig: |
 
 commonConfig: |
-  bootstrap.servers=localhost:9092
+  bootstrap.servers=seed-316272b8.ckj5ite3demu3ii036k0.byoc.ign.cloud.redpanda.com:9092
+  security.protocol=SASL_SSL
+  sasl.mechanism=SCRAM-SHA-256
+  sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='mm2' password='mm2mm2';
+
 
 producerConfig: |
   acks=all

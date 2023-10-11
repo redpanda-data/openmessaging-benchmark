@@ -37,7 +37,7 @@ fi
 
 if [ -z "$HEAP_OPTS" ]
 then
-    HEAP_OPTS="-Xms4G -Xmx4G"
+    HEAP_OPTS="-Xms2G -Xmx2G"
 fi
 
 JVM_MEM="${HEAP_OPTS} -XX:+UseG1GC"
