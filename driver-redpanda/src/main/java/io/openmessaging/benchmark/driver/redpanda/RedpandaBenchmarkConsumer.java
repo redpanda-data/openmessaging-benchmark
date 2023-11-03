@@ -35,24 +35,24 @@ import io.openmessaging.benchmark.driver.ConsumerCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RedpandaBenchmarkConsumer implements BenchmarkConsumer {
+public class RedpandaBenchmarkConsumer<T> implements BenchmarkConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(RedpandaBenchmarkConsumer.class);
 
-    private final KafkaConsumer<String, byte[]> consumer;
+    private final KafkaConsumer<T, byte[]> consumer;
 
     private final ExecutorService executor;
     private final Future<?> consumerTask;
     private volatile boolean closing = false;
     private boolean autoCommit;
 
-    public RedpandaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer,
+    public RedpandaBenchmarkConsumer(KafkaConsumer<T, byte[]> consumer,
                                   Properties consumerConfig,
                                   ConsumerCallback callback) {
         this(consumer, consumerConfig, callback, 100L);
     }
 
-    public RedpandaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer,
+    public RedpandaBenchmarkConsumer(KafkaConsumer<T, byte[]> consumer,
                                   Properties consumerConfig,
                                   ConsumerCallback callback,
                                   long pollTimeoutMs) {
@@ -64,9 +64,9 @@ public class RedpandaBenchmarkConsumer implements BenchmarkConsumer {
             Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
             while (!closing) {
                 try {
-                    ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(pollTimeoutMs));
+                    ConsumerRecords<T, byte[]> records = consumer.poll(Duration.ofMillis(pollTimeoutMs));
 
-                    for (ConsumerRecord<String, byte[]> record : records) {
+                    for (ConsumerRecord<T, byte[]> record : records) {
                         callback.messageReceived(record.value(), record.timestamp());
 
                         offsetMap.put(new TopicPartition(record.topic(), record.partition()),

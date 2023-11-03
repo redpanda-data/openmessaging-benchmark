@@ -19,12 +19,21 @@ import javax.annotation.concurrent.NotThreadSafe;
 public class KeyRoundRobin extends KeyDistributor {
 
     private int currentIndex = 0;
+    private final int len = getLength();
 
     @Override
     public String next() {
-        if (++currentIndex >= getLength()) {
+        if (++currentIndex >= len) {
             currentIndex = 0;
         }
         return get(currentIndex);
+    }
+
+    @Override
+    public byte[] nextBytes() {
+        if (++currentIndex >= len) {
+            currentIndex = 0;
+        }
+        return getBytes(currentIndex);
     }
 }

@@ -19,4 +19,9 @@ public class NoKeyDistributor extends KeyDistributor {
     public String next() {
         return null;
     }
+
+    @Override
+    public byte[] nextBytes() {
+        return null;
+    }
 }

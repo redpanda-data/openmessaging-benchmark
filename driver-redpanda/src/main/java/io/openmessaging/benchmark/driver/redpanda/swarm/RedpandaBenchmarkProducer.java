@@ -31,10 +31,10 @@ import io.openmessaging.benchmark.driver.BenchmarkProducer;
 
 public class RedpandaBenchmarkProducer implements BenchmarkProducer {
     private final UUID nodeId;
-    private final KafkaProducer<String, byte[]> producer;
+    private final KafkaProducer<byte[], byte[]> producer;
     private final String topic;
 
-    public RedpandaBenchmarkProducer(UUID nodeId, KafkaProducer<String, byte[]> producer, String topic) {
+    public RedpandaBenchmarkProducer(UUID nodeId, KafkaProducer<byte[], byte[]> producer, String topic) {
         this.nodeId = nodeId;
         this.producer = producer;
         this.topic = topic;
@@ -42,6 +42,12 @@ public class RedpandaBenchmarkProducer implements BenchmarkProducer {
 
     @Override
     public CompletableFuture<Void> sendAsync(Optional<String> key, byte[] payload) {
+        final byte[] binaryKey = key.map(String::getBytes).orElse(null);
+        return sendAsync(binaryKey, payload);
+    }
+
+    @Override
+    public CompletableFuture<Void> sendAsync(byte[] key, byte[] payload) {
         if (payload.length < 16 + 8) {
             throw new RuntimeException();
         }
@@ -52,7 +58,7 @@ public class RedpandaBenchmarkProducer implements BenchmarkProducer {
         RedpandaBenchmarkDriver.putUuid(bb, 0, nodeId);
         bb.putLong(16, System.nanoTime());
         
-        ProducerRecord<String, byte[]> record = new ProducerRecord<>(topic, key.orElse(null), data);
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topic, key, data);
 
         CompletableFuture<Void> future = new CompletableFuture<>();
 
