@@ -16,8 +16,10 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+collections:
+  - name: grafana.grafana
 
-- src: mrlesmithjr.mdadm
-- src: cloudalchemy.prometheus
-- src: cloudalchemy.grafana
-- src: geerlingguy.node_exporter
+roles:
+  - src: mrlesmithjr.mdadm
+  - src: cloudalchemy.prometheus
+  - src: geerlingguy.node_exporter
