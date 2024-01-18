@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 
-FROM openjdk:8-jdk
+FROM ${base}
 
 ARG BENCHMARK_TARBALL
 
