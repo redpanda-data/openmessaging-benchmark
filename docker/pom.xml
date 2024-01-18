@@ -54,6 +54,10 @@
                             <name>${docker.organization}/openmessaging-benchmark</name>
                             <alias>dockerfile</alias>
                             <build>
+                                <tags>
+                                    <tag>latest</tag>
+                                    <tag>${project.version}</tag>
+                                </tags>
                                 <args>
                                     <BENCHMARK_TARBALL>target/package-${project.version}-bin.tar.gz</BENCHMARK_TARBALL>
                                 </args>
