@@ -54,5 +54,5 @@ spec:
       command: ["sh", "-c"]
       args:
         - >
-          echo "bin/benchmark --drivers ${DRIVER_CONFIG} --workers ${WORKERS} ${WORKLOAD}" > example-run.sh &&
+          echo "bin/benchmark --drivers ${DRIVER_CONFIG} --workers \"${WORKERS}\" ${WORKLOAD}" > example-run.sh &&
           tail -f /dev/null

@@ -34,10 +34,10 @@ driver:
   # -- Pod memory resource requests.
   memory:
     # -- JVM heap size (note: must use JVM heap values, not k8s memory sizes)
-    heap: 1g
+    heap: 1756m
+    # -- Container memory resource limit (min) and request (max)
     container:
-      # -- Container memory resource limit (min) and request (max)
-      min: 1024Mi
+      min: 2048Mi
       max: 2048Mi
 
 # -- OMB Worker settings.
