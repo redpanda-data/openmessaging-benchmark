@@ -12,15 +12,44 @@
 # limitations under the License.
 #
 
-numWorkers: 8
-image: openmessaging/openmessaging-benchmark:latest
-imagePullPolicy: Always
-workload: workloads/1-topic-16-partitions-1kb.yaml
-driver: driver-pulsar/pulsar.yaml
+# -- Override `benchmark.name` template.
+nameOverride: ""
+# -- Override `benchmark.fullname` template.
+fullnameOverride: ""
 
-# Resource Configurations
-driverMemoryRequest: 512Mi
-driverMemoryLimit: 2048Mi
+# -- Container image settings.
+image:
+  repository: docker.redpanda.com/openmessaging-benchmark/openmessaging-benchmark
+  tag: latest
+  pullPolicy: Always
 
-#workersMemoryRequest: 512Mi
-#workersMemoryLimit: 2048Mi
+# -- OMB Driver settings.
+driver:
+  # -- Default test config
+  config: driver-redpanda/redpanda-ack-0.yaml
+  # -- Default workload
+  workload: workloads/1-topic-1-partition-1kb.yaml
+  # -- Number of cpus to request for the driver.
+  cpuCores: 2
+  # -- Pod memory resource requests.
+  memory:
+    # -- JVM heap size (note: must use JVM heap values, not k8s memory sizes)
+    heap: 1g
+    container:
+      # -- Container memory resource limit (min) and request (max)
+      min: 1024Mi
+      max: 2048Mi
+
+# -- OMB Worker settings.
+workers:
+  # -- Number of OMB Worker pods to deploy in the StatefulSet.
+  replicaCount: 1
+  # -- Number of cpus to request for a Worker pod.
+  cpuCores: 2
+  memory:
+    # -- JVM heap size (note: must use JVM heap values, not k8s memory sizes)
+    heap: 1756m
+    # -- Container memory resource request (min) and limit (max)
+    container:
+      min: 2048Mi
+      max: 2048Mi

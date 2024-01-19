@@ -22,22 +22,37 @@ metadata:
 spec:
   containers:
     - name: {{ .Release.Name }}-driver
-      imagePullPolicy: {{ .Values.imagePullPolicy }}
-      image: {{ .Values.image }}
+      image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+      imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
+      {{- if or .Values.driver.memory .Values.driver.cpuCores }}
       resources:
+        {{- if .Values.driver.memory }}
         limits:
-          memory: {{ .Values.driverMemoryLimit }}
+          memory: {{ .Values.driver.memory.container.max }}
+        {{- end }}
         requests:
-          memory: {{ .Values.driverMemoryRequest }}
+          {{- if .Values.driver.memory }}
+          memory: {{ .Values.driver.memory.container.min | default .Values.driver.memory.container.max }}
+          {{- end }}
+          {{- if .Values.driver.cpuCores }}
+          cpu: {{ .Values.driver.cpuCores | default 2 }}
+          {{- end }}
+      {{- end }}
       env:
+        - name: DRIVER_CONFIG
+          value: {{ .Values.driver.config | quote }}
         - name: NUM_WORKERS
-          value: "{{ .Values.numWorkers }}"
+          value: {{ .Values.workers.replicaCount | quote }}
         - name: WORKERS
-          value: '{{ template "workers" .Values }}'
+          value: '{{- template "workers" . }}'
+        - name: WORKLOAD
+          value: {{ .Values.driver.workload | quote }}
+        {{- if .Values.driver.memory.heap }}
         - name: HEAP_OPTS
-          value: '-Xms4G -Xmx4G'
+          value: "-Xms{{ .Values.driver.memory.heap }} -Xmx{{ .Values.driver.memory.heap }}"
+        {{- end }}
       command: ["sh", "-c"]
       args:
         - >
-          echo "bin/benchmark --drivers {{ .Values.driver }} --workers $WORKERS {{ .Values.workload }}" > example-run.sh &&
+          echo "bin/benchmark --drivers ${DRIVER_CONFIG} --workers ${WORKERS} ${WORKLOAD}" > example-run.sh &&
           tail -f /dev/null

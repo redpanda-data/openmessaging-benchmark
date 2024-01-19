@@ -21,7 +21,7 @@ metadata:
     component: worker
 spec:
   serviceName: {{ .Release.Name }}-worker
-  replicas: {{ .Values.numWorkers }}
+  replicas: {{ .Values.workers.replicaCount }}
   podManagementPolicy: Parallel
   selector:
     matchLabels:
@@ -35,16 +35,23 @@ spec:
     spec:
       containers:
         - name: {{ .Release.Name }}-worker
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          image: {{ .Values.image }}
-          {{- if .Values.workersMemoryRequest }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
+          {{- if .Values.workers.memory}}
           resources:
             limits:
-              memory: {{ .Values.workersMemoryLimit }}
+              memory: {{ .Values.workers.memory.container.max }}
+              cpu: {{ .Values.workers.cpuCores }}
             requests:
-              memory: {{ .Values.workersMemoryRequest }}
+              memory: {{ .Values.workers.memory.container.min }}
+              cpu: {{ .Values.workers.cpuCores }}
           {{- end }}
-          command: ["sh", "-c"]
+          {{- if .Values.workers.memory.heap }}
+          env:
+            - name: HEAP_OPTS
+              value: "-Xms{{ .Values.workers.memory.heap }} -Xmx{{ .Values.workers.memory.heap }}"
+          {{- end }}
+          command: [ "sh", "-c" ]
           args:
             - >
               bin/benchmark-worker
