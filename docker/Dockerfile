@@ -12,12 +12,15 @@
 # limitations under the License.
 #
 
-FROM openjdk:8-jdk
+FROM ${base}
 
 ARG BENCHMARK_TARBALL
-
 ADD ${BENCHMARK_TARBALL} /
 
-RUN mv openmessaging-benchmark-* /benchmark
+RUN mv openmessaging-benchmark-* /opt/benchmark
+WORKDIR /opt/benchmark
 
-WORKDIR /benchmark
+ENV JMX_EXPORTER="/opt/benchmark/driver-redpanda/deploy/monitoring/jmx_exporter"
+ENV KAFKA_OPTS="-javaagent:${JMX_EXPORTER}/jmx_prometheus_javaagent-0.13.0.jar=9090:${JMX_EXPORTER}/metrics.yml"
+
+ENTRYPOINT [ "/bin/bash" ]

@@ -17,12 +17,10 @@
 LOG4J_CONFIG=${LOG4J_CONFIG:-/opt/benchmark/log4j2-benchmark-worker.yaml}
 
 if [ -d "./lib" ]; then
-        CLASSPATH=$CLASSPATH:lib/*
+    CLASSPATH=$CLASSPATH:lib/*
 else
     CLASSPATH=benchmark-framework/target/classes:`cat benchmark-framework/target/classpath.txt`
 fi
-
-
 
 if [ -f ${LOG4J_CONFIG} ]; then
 	JAVA_OPTS="-DDlog4j.configurationFile=${LOG4J_CONFIG}"
@@ -34,9 +32,9 @@ then
 fi
 
 KAFKA_JMX_OPTS="-Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=0.0.0.0 -Djava.net.preferIPv4Stack=true"
-KAFKA_OPTS="-javaagent:/opt/benchmark/jmx_prometheus_javaagent-0.13.0.jar=9090:/opt/benchmark/metrics.yml"
+KAFKA_OPTS="${KAFKA_OPTS:--javaagent:/opt/benchmark/jmx_prometheus_javaagent-0.13.0.jar=9090:/opt/benchmark/metrics.yml}"
 
 JVM_MEM="${HEAP_OPTS} -XX:+UseG1GC"
-JVM_GC_LOG=" -XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime  -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=64m  -Xloggc:/dev/shm/benchmark-client-gc_%p.log"
+JVM_GC_LOG=" -XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=64m  -Xloggc:/dev/shm/benchmark-client-gc_%p.log"
 
 exec java -server $KAFKA_JMX_OPTS -cp $CLASSPATH $JAVA_OPTS $JVM_MEM $KAFKA_OPTS io.openmessaging.benchmark.worker.BenchmarkWorker $*
