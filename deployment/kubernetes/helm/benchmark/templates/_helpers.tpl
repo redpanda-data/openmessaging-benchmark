@@ -42,3 +42,22 @@ Create the list of urls to the worker nodes.
 http://{{ $name }}-worker-{{ $index0 }}.{{ $name }}-worker:8080{{ if ne $index1 $nodeCount }},{{ end }}
   {{- end -}}
 {{- end -}}
+
+{{/*
+Identify the security protocol from the driver settings.
+*/}}
+{{- define "security.protocol" -}}
+{{- if .Values.redpanda.tls -}}
+  {{- if .Values.redpanda.sasl.username -}}
+SASL_SSL
+  {{- else -}}
+SSL
+  {{- end -}}
+{{- else -}}
+  {{- if .Values.redpanda.sasl.username -}}
+SASL_PLAINTEXT
+  {{- else -}}
+PLAINTEXT
+  {{- end -}}
+{{- end -}}
+{{- end -}}

@@ -38,15 +38,12 @@ spec:
           cpu: {{ .Values.driver.cpuCores | default 2 }}
           {{- end }}
       {{- end }}
+      volumeMounts:
+        - name: omb-config
+          mountPath: /etc/omb
       env:
-        - name: DRIVER_CONFIG
-          value: {{ .Values.driver.config | quote }}
-        - name: NUM_WORKERS
-          value: {{ .Values.workers.replicaCount | quote }}
         - name: WORKERS
           value: '{{- template "workers" . }}'
-        - name: WORKLOAD
-          value: {{ .Values.driver.workload | quote }}
         {{- if .Values.driver.memory.heap }}
         - name: HEAP_OPTS
           value: "-Xms{{ .Values.driver.memory.heap }} -Xmx{{ .Values.driver.memory.heap }}"
@@ -54,5 +51,16 @@ spec:
       command: ["sh", "-c"]
       args:
         - >
-          echo "bin/benchmark --drivers ${DRIVER_CONFIG} --workers \"${WORKERS}\" ${WORKLOAD}" > example-run.sh &&
+          echo "bin/benchmark --drivers /etc/omb/driver.yaml --workers \"${WORKERS}\" /etc/omb/workload.yaml" > example-run.sh &&
           tail -f /dev/null
+  volumes:
+    - name: omb-config
+      projected:
+        sources:
+          - configMap:
+              name: {{ .Release.Name }}-driver-config
+              items:
+                - key: driver.yaml
+                  path: driver.yaml
+                - key: workload.yaml
+                  path: workload.yaml
