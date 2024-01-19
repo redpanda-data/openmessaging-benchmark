@@ -39,6 +39,7 @@
 		<module>driver-jms</module>
 		<module>driver-redis</module>
 		<module>package</module>
+		<module>deployment</module>
 		<module>docker</module>
 		<module>driver-kop</module>
 	</modules>
