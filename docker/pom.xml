@@ -26,7 +26,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <base>openjdk:11-jdk</base>
+        <base>eclipse-temurin:11-jdk</base>
         <docker-maven.version>0.43.4</docker-maven.version>
         <docker.organization>docker.redpanda.com/redpandadata</docker.organization>
     </properties>
