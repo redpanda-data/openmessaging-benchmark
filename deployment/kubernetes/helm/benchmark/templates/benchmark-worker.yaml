@@ -58,6 +58,16 @@ spec:
           ports:
             - containerPort: 8080
             - containerPort: 8081
+      {{- if and .Values.redpanda.tls.enabled .Values.redpanda.tls.caSecretRef }}
+          volumeMounts:
+            - name: omb-ca
+              mountPath: /opt/omb-ca
+              readOnly: true
+      volumes:
+        - name: omb-ca
+          secret:
+            secretName: {{ .Values.redpanda.tls.caSecretRef.name }}
+      {{- end }}
 ---
 
 apiVersion: v1

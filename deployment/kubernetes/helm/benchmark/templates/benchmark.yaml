@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+---
 apiVersion: v1
 kind: Pod
 metadata:
@@ -41,6 +41,8 @@ spec:
       volumeMounts:
         - name: omb-config
           mountPath: /etc/omb
+        - name: omb-results
+          mountPath: /run/omb
       env:
         - name: WORKERS
           value: '{{- template "workers" . }}'
@@ -51,7 +53,8 @@ spec:
       command: ["sh", "-c"]
       args:
         - >
-          echo "bin/benchmark --drivers /etc/omb/driver.yaml --workers \"${WORKERS}\" /etc/omb/workload.yaml" > example-run.sh &&
+          echo 'bin/benchmark -o \"/run/omb/test-`date '+%Y-%m-%dT%H%M%S'`\" --drivers /etc/omb/driver.yaml --workers \"${WORKERS}\" /etc/omb/workload.yaml' > run.sh &&
+          chmod +x run.sh &&
           tail -f /dev/null
   volumes:
     - name: omb-config
@@ -64,3 +67,36 @@ spec:
                   path: driver.yaml
                 - key: workload.yaml
                   path: workload.yaml
+    - name: omb-results
+      {{- if .Values.driver.storage.persistentVolume.enabled }}
+      persistentVolumeClaim:
+        claimName: omb-results-pvc
+      {{- else if .Values.driver.storage.hostPath }}
+      hostPath:
+        path: {{ .Values.driver.storage.hostPath | quote }}
+      {{- else }}
+      emptyDir: {}
+      {{- end }}
+
+{{- if .Values.driver.storage.persistentVolume.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-results-pvc
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.driver.storage.persistentVolume.storageClass }}
+  {{- if (eq "-" .Values.driver.storage.persistentVolume.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.driver.storage.persistentVolume.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.driver.storage.persistentVolume.size | quote }}
+{{- end}}

@@ -25,7 +25,11 @@ image:
 
 redpanda:
   brokers: "localhost:9092"
-  tls: true
+  tls:
+    enabled: false
+    caSecretRef:
+      name: redpanda-default-root-certificate
+      key: ca.crt
   sasl:
     username: omb
     password: ""
@@ -33,8 +37,8 @@ redpanda:
 
 # -- OMB Driver settings.
 driver:
-  # -- Default workload
-  workload: workloads/1-topic-1-partition-1kb.yaml
+  # -- Java class for the driver.
+  class: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
   # -- Number of cpus to request for the driver.
   cpuCores: 2
   # -- Pod memory resource requests.
@@ -45,6 +49,26 @@ driver:
     container:
       min: 2048Mi
       max: 2048Mi
+  # -- Persistence settings.
+  storage:
+    # -- Absolute path on the host to store OMB's test output.
+    # If unspecified, then an `emptyDir` volume is used.
+    # If specified but `persistentVolume.enabled` is true, `storage.hostPath` has no effect.
+    hostPath: ""
+    # -- If `persistentVolume.enabled` is true, a PersistentVolumeClaim is created and
+    # used to store Redpanda's data. Otherwise, `storage.hostPath` is used.
+    persistentVolume:
+      enabled: true
+      size: 1Gi
+      # -- To disable dynamic provisioning, set to "-".
+      # If undefined or empty (default), then no storageClassName spec is set,
+      # and the default dynamic provisioner is chosen (gp2 on AWS, standard on
+      # GKE, AWS & OpenStack).
+      storageClass: ""
+      # -- Additional labels to apply to the created PersistentVolumeClaims.
+      labels: { }
+      # -- Additional annotations to apply to the created PersistentVolumeClaims.
+      annotations: { }
 
 # -- OMB Worker settings.
 workers:
@@ -59,3 +83,29 @@ workers:
     container:
       min: 2048Mi
       max: 2048Mi
+
+# -- OMB Producer Config
+producerConfig:
+  acks: 1
+  lingerMs: 1
+  batchSize: 131072
+
+# -- OMB Consumer Config
+consumerConfig:
+  autoOffsetReset: earliest
+  autoCommit: true
+
+# -- OMB Workload. Will be used literally, so all workload properties are valid here.
+workload:
+  name: "1 producer / 1 consumers on 1 topic"
+  topics: 1
+  partitionsPerTopic: 4
+  messageSize: 1024
+  payloadFile: "payload/payload-1Kb.data"
+  subscriptionsPerTopic: 1
+  consumerPerSubscription: 1
+  producersPerTopic: 1
+  producerRate: 10000
+  consumerBacklogSizeGB: 0
+  testDurationMinutes: 5
+  warmupDurationMinutes: 5

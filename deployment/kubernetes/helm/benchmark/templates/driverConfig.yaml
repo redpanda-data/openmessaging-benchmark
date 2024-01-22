@@ -21,7 +21,7 @@ metadata:
 data:
   driver.yaml: |
     name: Redpanda
-    driverClass: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
+    driverClass: {{ .Values.driver.class }}
     replicationFactor: 3
     reset: true
     topicConfig: |
@@ -32,23 +32,16 @@ data:
       {{- if .Values.redpanda.sasl.username }}
       sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username={{ .Values.redpanda.sasl.username | quote }} password={{ .Values.redpanda.sasl.password | quote }};
       {{- end }}
+      {{- if .Values.redpanda.tls.enabled }}
+      ssl.truststore.type=PEM
+      ssl.truststore.location=/opt/omb-ca/{{ .Values.redpanda.tls.caSecretRef.key }}
+      {{- end}}
     producerConfig: |
-      acks=1
-      linger.ms=1
-      batch.size=131072
+      acks={{ .Values.producerConfig.acks | default 1 }}
+      linger.ms={{ .Values.producerConfig.lingerMs | default 1 }}
+      batch.size={{ .Values.producerConfig.batchSize | default 131072 }}
     consumerConfig: |
-      auto.offset.reset=earliest
-      enable.auto.commit=false
+      auto.offset.reset={{ .Values.consumerConfig.autoOffsetReset }}
+      enable.auto.commit={{ .Values.consumerConfig.autoCommit }}
   workload.yaml: |
-    name: "1 producer / 1 consumers on 1 topic"
-    topics: 1
-    partitionsPerTopic: 16
-    messageSize: 1024
-    payloadFile: "payload/payload-1Kb.data"
-    subscriptionsPerTopic: 1
-    consumerPerSubscription: 1
-    producersPerTopic: 1
-    producerRate: 50000
-    consumerBacklogSizeGB: 0
-    testDurationMinutes: 5
-    warmupDurationMinutes: 5
+{{ toYaml .Values.workload | indent 4 }}
