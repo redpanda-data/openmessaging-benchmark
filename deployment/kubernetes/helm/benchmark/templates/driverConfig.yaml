@@ -21,12 +21,12 @@ metadata:
 data:
   driver.yaml: |
     name: Redpanda
-    driverClass: {{ .Values.driver.class }}
-    replicationFactor: 3
-    reset: true
+    driverClass: {{ .Values.driver.class | default "io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver" }}
+    replicationFactor: {{ .Values.driver.replicationFactor | default 1}}
+    reset: {{ .Values.driver.reset | default false}}
     topicConfig: |
     commonConfig: |
-      bootstrap.servers={{ .Values.redpanda.brokers }}
+      bootstrap.servers={{ .Values.redpanda.brokers | default "localhost:9092"}}
       security.protocol={{- template "security.protocol" . }}
       sasl.mechanism={{ .Values.redpanda.sasl.mechanism }}
       {{- if .Values.redpanda.sasl.username }}
@@ -39,9 +39,15 @@ data:
     producerConfig: |
       acks={{ .Values.producerConfig.acks | default 1 }}
       linger.ms={{ .Values.producerConfig.lingerMs | default 1 }}
-      batch.size={{ .Values.producerConfig.batchSize | default 131072 }}
+      batch.size={{ .Values.producerConfig.batchSize | default 131072 | int64 }}
+      enable.idempotence={{ .Values.producerConfig.enableIdempotence | default false }}
+      max.in.flight.requests.per.connection={{ .Values.producerConfig.maxInFlightRequestsPerConnection | default 5 }}
     consumerConfig: |
-      auto.offset.reset={{ .Values.consumerConfig.autoOffsetReset }}
-      enable.auto.commit={{ .Values.consumerConfig.autoCommit }}
+      {{- if .Values.consumerConfig.groupId }}
+      group.id={{ .Values.consumerConfig.groupId }}
+      {{- end }}
+      auto.offset.reset={{ .Values.consumerConfig.autoOffsetReset | default "earliest"}}
+      enable.auto.commit={{ .Values.consumerConfig.enableAutoCommit | default true }}
+      max.partition.fetch.bytes={{ .Values.consumerConfig.maxPartitionFetchBytes | default 1048576 | int64 }}
   workload.yaml: |
 {{ toYaml .Values.workload | indent 4 }}
