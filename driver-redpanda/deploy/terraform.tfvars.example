@@ -1,4 +1,4 @@
-public_key_path = "key.pub"
+public_key_path = "~/.ssh/redpanda_aws.pub"
 
 owner           = "redpanda"
 region          = "us-west-2"

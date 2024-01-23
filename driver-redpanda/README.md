@@ -6,12 +6,14 @@
 
 - Ansible and modules:
     - geerlingguy.node_exporter
-    - cloudalchemy.prometheus
-    - cloudalchemy.grafana
+    - prometheus.prometheus
+    - grafana.grafana
 
 - Python 3 set as default.
 
 - The [terraform inventory plugin](https://github.com/adammck/terraform-inventory)
+
+- aws-cli
 
 ## Setup
 
@@ -23,16 +25,17 @@
 ```
 	cp terraform.tfvars.example terraform.tfvars
         terraform init
+        aws sts get-caller-identity || aws sso login
         terraform apply -auto-approve
 ```
 
 4. To setup the deployed nodes. Run:
 
 ```
+        if [ "$(uname)" = "Darwin" ]; then export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES; fi
+        ansible-galaxy install -r requirements.yml
         ansible-playbook deploy.yaml
 ```
-NOTE: You might experience an issue with child forks crashing.  In that case,
-try running this `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` and deploying again.
 
 ## Running the benchmark
 
