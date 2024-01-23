@@ -78,8 +78,8 @@ driver:
 
 # -- OMB Worker settings.
 workers:
-  # -- Number of OMB Worker pods to deploy in the StatefulSet.
-  replicaCount: 1
+  # -- Number of OMB Worker pods to deploy in the StatefulSet. (OMB requires a minimum of 2.)
+  replicaCount: 2
   # -- Number of cpus to request for a Worker pod.
   cpuCores: 2
   memory:
