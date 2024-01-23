@@ -18,8 +18,8 @@
 #
 collections:
   - name: grafana.grafana
+  - name: prometheus.prometheus
 
 roles:
   - src: mrlesmithjr.mdadm
-  - src: cloudalchemy.prometheus
   - src: geerlingguy.node_exporter

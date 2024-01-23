@@ -440,7 +440,7 @@
 
 - hosts: prometheus
   roles:
-  - cloudalchemy.prometheus
+  - prometheus.prometheus.prometheus
   vars:
     prometheus_scrape_configs:
       - job_name: "redpanda"
