@@ -12,15 +12,110 @@
 # limitations under the License.
 #
 
-numWorkers: 8
-image: openmessaging/openmessaging-benchmark:latest
-imagePullPolicy: Always
-workload: workloads/1-topic-16-partitions-1kb.yaml
-driver: driver-pulsar/pulsar.yaml
+# -- Override `benchmark.name` template.
+nameOverride: ""
+# -- Override `benchmark.fullname` template.
+fullnameOverride: ""
 
-# Resource Configurations
-driverMemoryRequest: 512Mi
-driverMemoryLimit: 2048Mi
+# -- Container image settings.
+image:
+  repository: docker.redpanda.com/openmessaging-benchmark/openmessaging-benchmark
+  tag: latest
+  pullPolicy: Always
 
-#workersMemoryRequest: 512Mi
-#workersMemoryLimit: 2048Mi
+redpanda:
+  brokers: "localhost:9092"
+  tls:
+    enabled: false
+    caSecretRef:
+      name: redpanda-default-root-certificate
+      key: ca.crt
+  sasl:
+    username: omb
+    password: ""
+    mechanism: SCRAM-SHA-256
+
+# -- OMB Driver settings.
+driver:
+  # -- Java class for the driver.
+  class: io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver
+  # -- Default partition replication factor.
+  replicationFactor: 3
+  # -- Delete topics before starting test run.
+  reset: true
+  # -- Kafka Request timeout
+  requestTimeoutMs: 30000
+  # -- Number of cpus to request for the driver.
+  cpuCores: 2
+  # -- Pod memory resource requests.
+  memory:
+    # -- JVM heap size (note: must use JVM heap values, not k8s memory sizes)
+    heap: 1756m
+    # -- Container memory resource limit (min) and request (max)
+    container:
+      min: 2048Mi
+      max: 2048Mi
+  # -- Persistence settings.
+  storage:
+    # -- Absolute path on the host to store OMB's test output.
+    # If unspecified, then an `emptyDir` volume is used.
+    # If specified but `persistentVolume.enabled` is true, `storage.hostPath` has no effect.
+    hostPath: ""
+    # -- If `persistentVolume.enabled` is true, a PersistentVolumeClaim is created and
+    # used to store Redpanda's data. Otherwise, `storage.hostPath` is used.
+    persistentVolume:
+      enabled: true
+      size: 1Gi
+      # -- To disable dynamic provisioning, set to "-".
+      # If undefined or empty (default), then no storageClassName spec is set,
+      # and the default dynamic provisioner is chosen (gp2 on AWS, standard on
+      # GKE, AWS & OpenStack).
+      storageClass: ""
+      # -- Additional labels to apply to the created PersistentVolumeClaims.
+      labels: { }
+      # -- Additional annotations to apply to the created PersistentVolumeClaims.
+      annotations: { }
+
+# -- OMB Worker settings.
+workers:
+  # -- Number of OMB Worker pods to deploy in the StatefulSet. (OMB requires a minimum of 2.)
+  replicaCount: 2
+  # -- Number of cpus to request for a Worker pod.
+  cpuCores: 2
+  memory:
+    # -- JVM heap size (note: must use JVM heap values, not k8s memory sizes)
+    heap: 1756m
+    # -- Container memory resource request (min) and limit (max)
+    container:
+      min: 2048Mi
+      max: 2048Mi
+
+# -- OMB Producer Config
+producerConfig:
+  acks: 1
+  lingerMs: 1
+  batchSize: 131072
+  maxInFlightRequestsPerConnection: 1
+  enableIdempotence: false
+
+# -- OMB Consumer Config
+consumerConfig:
+  groupId: benchGroup
+  autoOffsetReset: earliest
+  enableAutoCommit: true
+  maxPartitionFetchBytes: 1048576
+
+# -- OMB Workload. Will be used literally, so all workload properties are valid here.
+workload:
+  name: "1 producer / 1 consumers on 1 topic"
+  topics: 1
+  partitionsPerTopic: 4
+  messageSize: 1024
+  payloadFile: "payload/payload-1Kb.data"
+  subscriptionsPerTopic: 1
+  consumerPerSubscription: 1
+  producersPerTopic: 1
+  producerRate: 10000
+  consumerBacklogSizeGB: 0
+  testDurationMinutes: 5
+  warmupDurationMinutes: 5

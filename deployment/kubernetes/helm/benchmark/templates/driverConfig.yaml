@@ -1,0 +1,53 @@
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-driver-config
+  labels:
+    app: {{ .Release.Name }}
+data:
+  driver.yaml: |
+    name: Redpanda
+    driverClass: {{ .Values.driver.class | default "io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriver" }}
+    replicationFactor: {{ .Values.driver.replicationFactor | default 1}}
+    reset: {{ .Values.driver.reset | default false}}
+    topicConfig: |
+    commonConfig: |
+      bootstrap.servers={{ .Values.redpanda.brokers | default "localhost:9092"}}
+      security.protocol={{- template "security.protocol" . }}
+      sasl.mechanism={{ .Values.redpanda.sasl.mechanism }}
+      {{- if .Values.redpanda.sasl.username }}
+      sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username={{ .Values.redpanda.sasl.username | quote }} password={{ .Values.redpanda.sasl.password | quote }};
+      {{- end }}
+      {{- if .Values.redpanda.tls.enabled }}
+      ssl.truststore.type=PEM
+      ssl.truststore.location=/opt/omb-ca/{{ .Values.redpanda.tls.caSecretRef.key }}
+      {{- end}}
+    producerConfig: |
+      acks={{ .Values.producerConfig.acks | default 1 }}
+      linger.ms={{ .Values.producerConfig.lingerMs | default 1 }}
+      batch.size={{ .Values.producerConfig.batchSize | default 131072 | int64 }}
+      enable.idempotence={{ .Values.producerConfig.enableIdempotence | default false }}
+      max.in.flight.requests.per.connection={{ .Values.producerConfig.maxInFlightRequestsPerConnection | default 5 }}
+    consumerConfig: |
+      {{- if .Values.consumerConfig.groupId }}
+      group.id={{ .Values.consumerConfig.groupId }}
+      {{- end }}
+      auto.offset.reset={{ .Values.consumerConfig.autoOffsetReset | default "earliest"}}
+      enable.auto.commit={{ .Values.consumerConfig.enableAutoCommit | default true }}
+      max.partition.fetch.bytes={{ .Values.consumerConfig.maxPartitionFetchBytes | default 1048576 | int64 }}
+  workload.yaml: |
+{{ toYaml .Values.workload | indent 4 }}

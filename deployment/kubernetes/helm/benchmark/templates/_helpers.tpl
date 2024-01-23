@@ -31,10 +31,33 @@ Create chart name and version as used by the chart label.
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{/*
+Create the list of urls to the worker nodes.
+*/}}
 {{- define "workers" -}}
-{{- $nodeCount := .numWorkers | int }}
+{{- $nodeCount := .Values.workers.replicaCount | int }}
+{{- $name := .Release.Name }}
   {{- range $index0 := until $nodeCount -}}
     {{- $index1 := $index0 | add1 -}}
-http://benchmark-worker-{{ $index0 }}.benchmark-worker:8080{{ if ne $index1 $nodeCount }},{{ end }}
+http://{{ $name }}-worker-{{ $index0 }}.{{ $name }}-worker:8080{{ if ne $index1 $nodeCount }},{{ end }}
   {{- end -}}
+{{- end -}}
+
+{{/*
+Identify the security protocol from the driver settings.
+*/}}
+{{- define "security.protocol" -}}
+{{- if .Values.redpanda.tls -}}
+  {{- if .Values.redpanda.sasl.username -}}
+SASL_SSL
+  {{- else -}}
+SSL
+  {{- end -}}
+{{- else -}}
+  {{- if .Values.redpanda.sasl.username -}}
+SASL_PLAINTEXT
+  {{- else -}}
+PLAINTEXT
+  {{- end -}}
+{{- end -}}
 {{- end -}}

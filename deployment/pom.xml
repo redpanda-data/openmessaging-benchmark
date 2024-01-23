@@ -50,6 +50,7 @@
             <plugin>
                 <groupId>io.kokuwa.maven</groupId>
                 <artifactId>helm-maven-plugin</artifactId>
+                <version>6.13.0</version>
                 <configuration>
                     <chartDirectory>${project.basedir}/kubernetes/helm/benchmark</chartDirectory>
                     <chartVersion>${project.version}</chartVersion>

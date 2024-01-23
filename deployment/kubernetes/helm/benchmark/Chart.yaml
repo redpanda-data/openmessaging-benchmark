@@ -18,6 +18,7 @@ description: A Helm chart for running the Open Messaging Benchmark in Kubernetes
 name: openmessaging-benchmark
 version: 0.0.1
 sources:
-  - https://github.com/openmessaging/openmessaging-benchmark
+  - https://github.com/redpanda/openmessaging-benchmark
 maintainers:
-  - name: Jerry Peng
+  - name: Dave Voutila
+    email: dave.voutila@redpanda.com
