@@ -27,6 +27,8 @@ image:
   #  - name: "secret name"
 
 redpanda:
+  # -- Name of the Redpanda cluster
+  name: redpanda
   brokers: "localhost:9092"
   tls:
     enabled: false

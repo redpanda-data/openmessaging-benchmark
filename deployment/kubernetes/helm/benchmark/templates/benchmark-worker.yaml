@@ -17,8 +17,8 @@ kind: StatefulSet
 metadata:
   name: {{ .Release.Name }}-worker
   labels:
-    app: {{ .Release.Name }}
-    component: worker
+    app.kubernetes.io/app: {{ .Release.Name }}
+    app.kubernetes.io/component: omb-worker
 spec:
   serviceName: {{ .Release.Name }}-worker
   {{- if lt (int .Values.workers.replicaCount) 2 }}
@@ -39,6 +39,16 @@ spec:
       {{- with .Values.image.imagePullSecrets }}
       imagePullSecrets: {{ toYaml . | nindent 8}}
       {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - {{ .Values.redpanda.name | default "redpanda" }}-statefulset
       containers:
         - name: {{ .Release.Name }}-worker
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
