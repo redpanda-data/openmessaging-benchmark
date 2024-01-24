@@ -15,6 +15,7 @@ fi
 
 /opt/benchmark/bin/benchmark \
   --output "${TEST_NAME}" \
-  --driver "${DRIVER}" \
+  --drivers "${DRIVER}" \
   --workers "${WORKERS}" \
-  "${WORKLOAD}"
+  "${WORKLOAD}" \
+  $*
