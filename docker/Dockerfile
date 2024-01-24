@@ -20,10 +20,11 @@ ENV PATH="${PATH}:/opt/benchmark/bin"
 
 WORKDIR /opt/benchmark
 ADD run.sh /opt/benchmark/
+RUN chmod +x /opt/benchmark/run.sh
 
 # Adds an unpacks the tarball built by `mvn install`. Then moves files into the workdir.
-ADD ${BENCHMARK_TARBALL} /
-RUN mv /${docker.image}-${project.version}/* /opt/benchmark/ && \
-    rm -R "/${docker.image}-${project.version}"
+# N.b. uses a symlink instead of moving files to reduce Docker layer sizes.
+ADD ${BENCHMARK_TARBALL} /opt
+RUN ln -sf -t /opt/benchmark /opt/${docker.image}-${project.version}/*
 
 ENTRYPOINT [ "/bin/bash", "-c" ]
