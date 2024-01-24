@@ -43,5 +43,12 @@ fi
 JVM_MEM="${HEAP_OPTS} -XX:+UseG1GC -XX:+AlwaysPreTouch"
 JVM_GC_LOG=" -XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime  -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=64m  -Xloggc:/dev/shm/benchmark-client-gc_%p.log"
 
-JAVA_HOME="${JAVA_HOME:-/opt/java/openjdk}"
-"${JAVA_HOME}/bin/java" -server -cp $CLASSPATH $JAVA_OPTS $JVM_MEM io.openmessaging.benchmark.Benchmark $*
+# To help execution in Docker images, lean on JAVA_HOME to find java.
+if [ -z "${JAVA_HOME}" ]
+  JAVA_EXE=java
+  echo 'Assuming java is in $PATH.' > /dev/stderr
+else
+  JAVA_EXE="${JAVA_HOME}/bin/java"
+  echo "Using java from ${JAVA_EXT}" >/dev/stderr
+fi
+"${JAVA_EXE}" -server -cp $CLASSPATH $JAVA_OPTS $JVM_MEM io.openmessaging.benchmark.Benchmark $*
