@@ -26,9 +26,12 @@
     <packaging>pom</packaging>
 
     <properties>
-        <base>eclipse-temurin:11-jdk</base>
+        <base.image>eclipse-temurin</base.image>
+        <base.tag>11-jdk</base.tag>
         <docker-maven.version>0.43.4</docker-maven.version>
         <docker.organization>docker.redpanda.com/redpandadata</docker.organization>
+        <docker.image>openmessaging-benchmark</docker.image>
+        <!-- n.b. docker.image must match the way the package module names the tarball contents. -->
     </properties>
 
     <dependencies>
@@ -51,7 +54,7 @@
                 <configuration>
                     <images>
                         <image>
-                            <name>${docker.organization}/openmessaging-benchmark</name>
+                            <name>${docker.organization}/${docker.image}</name>
                             <alias>dockerfile</alias>
                             <build>
                                 <tags>
