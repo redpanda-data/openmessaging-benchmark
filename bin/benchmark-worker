@@ -26,8 +26,7 @@ if [ -f ${LOG4J_CONFIG} ]; then
 	JAVA_OPTS="-DDlog4j.configurationFile=${LOG4J_CONFIG}"
 fi
 
-if [ -z "$HEAP_OPTS" ]
-then
+if [ -z "$HEAP_OPTS" ]; then
     HEAP_OPTS="-Xms4G -Xmx8G"
 fi
 
@@ -37,4 +36,13 @@ KAFKA_OPTS="${KAFKA_OPTS:--javaagent:/opt/benchmark/jmx_prometheus_javaagent-0.1
 JVM_MEM="${HEAP_OPTS} -XX:+UseG1GC -XX:+AlwaysPreTouch"
 JVM_GC_LOG="-XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=64m -Xloggc:/dev/shm/benchmark-client-gc_%p.log"
 
-exec java -server $KAFKA_JMX_OPTS -cp $CLASSPATH $JAVA_OPTS $JVM_MEM $KAFKA_OPTS io.openmessaging.benchmark.worker.BenchmarkWorker $*
+# To help execution in Docker images, lean on JAVA_HOME to find java.
+if [ -z "${JAVA_HOME}" ]; then
+  JAVA_EXE=java
+  echo 'Assuming java is in $PATH.' > /dev/stderr
+else
+  JAVA_EXE="${JAVA_HOME}/bin/java"
+  echo "Using java from: ${JAVA_EXE}" > /dev/stderr
+fi
+exec "${JAVA_EXE}" -server $KAFKA_JMX_OPTS -cp $CLASSPATH $JAVA_OPTS $JVM_MEM $KAFKA_OPTS io.openmessaging.benchmark.worker.BenchmarkWorker $*
+

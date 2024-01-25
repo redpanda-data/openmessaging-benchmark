@@ -51,10 +51,7 @@ spec:
             - name: HEAP_OPTS
               value: "-Xms{{ .Values.workers.memory.heap }} -Xmx{{ .Values.workers.memory.heap }}"
           {{- end }}
-          command: [ "sh", "-c" ]
-          args:
-            - >
-              bin/benchmark-worker
+          command: [ "/opt/benchmark/bin/benchmark-worker" ]
           ports:
             - containerPort: 8080
             - containerPort: 8081

@@ -11,16 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-FROM ${base}
+FROM ${base.image}:${base.tag}
 
 ARG BENCHMARK_TARBALL
-ADD ${BENCHMARK_TARBALL} /
-
-RUN mv openmessaging-benchmark-* /opt/benchmark
-WORKDIR /opt/benchmark
-
 ENV JMX_EXPORTER="/opt/benchmark/driver-redpanda/deploy/monitoring/jmx_exporter"
-ENV KAFKA_OPTS="-javaagent:${JMX_EXPORTER}/jmx_prometheus_javaagent-0.13.0.jar=9090:${JMX_EXPORTER}/metrics.yml"
+ENV KAFKA_OPTS="-javaagent:${JMX_EXPORTER}/jmx_prometheus_javaagent-0.13.0.jar=9090:${JMX_EXPORTER}/metrics.yml" \
+    PATH="${PATH}:/opt/benchmark/bin" \
+    JAVA_HOME=/opt/java/openjdk
 
-ENTRYPOINT [ "/bin/bash" ]
+WORKDIR /opt/benchmark
+ADD run.sh /opt/benchmark/
+RUN chmod +x /opt/benchmark/run.sh
+
+# Adds an unpacks the tarball built by `mvn install`. Then moves files into the workdir.
+# N.b. uses a symlink instead of moving files to reduce Docker layer sizes.
+ADD ${BENCHMARK_TARBALL} /opt
+RUN ln -sf -t /opt/benchmark /opt/${docker.image}-${project.version}/*
+
+ENTRYPOINT [ "/bin/bash", "-c" ]

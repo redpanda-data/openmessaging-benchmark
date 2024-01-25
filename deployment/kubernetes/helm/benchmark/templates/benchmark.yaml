@@ -24,6 +24,8 @@ spec:
     - name: {{ .Release.Name }}-driver
       image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
       imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
+      stdin: true
+      tty: true
       {{- if or .Values.driver.memory .Values.driver.cpuCores }}
       resources:
         {{- if .Values.driver.memory }}
@@ -50,12 +52,7 @@ spec:
         - name: HEAP_OPTS
           value: "-Xms{{ .Values.driver.memory.heap }} -Xmx{{ .Values.driver.memory.heap }}"
         {{- end }}
-      command: ["sh", "-c"]
-      args:
-        - >
-          echo 'bin/benchmark -o \"/run/omb/test-`date '+%Y-%m-%dT%H%M%S'`.json\" --drivers /etc/omb/driver.yaml --workers \"${WORKERS}\" /etc/omb/workload.yaml' > run.sh &&
-          chmod +x run.sh &&
-          tail -f /dev/null
+      command: ["bash"]
   volumes:
     - name: omb-config
       projected:
