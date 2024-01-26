@@ -32,7 +32,7 @@ data:
       {{- if .Values.redpanda.sasl.username }}
       sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username={{ .Values.redpanda.sasl.username | quote }} password={{ .Values.redpanda.sasl.password | quote }};
       {{- end }}
-      {{- if .Values.redpanda.tls.enabled }}
+      {{- if and .Values.redpanda.tls.enabled .Values.redpanda.tls.caSecretRef.name }}
       ssl.truststore.type=PEM
       ssl.truststore.location=/opt/omb-ca/{{ .Values.redpanda.tls.caSecretRef.key }}
       {{- end}}

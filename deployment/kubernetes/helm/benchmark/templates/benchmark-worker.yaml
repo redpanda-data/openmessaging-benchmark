@@ -21,7 +21,10 @@ metadata:
     component: worker
 spec:
   serviceName: {{ .Release.Name }}-worker
-  replicas: {{ .Values.workers.replicaCount }}
+  {{- if lt (int .Values.workers.replicaCount) 2 }}
+  {{- fail "A minimum of 2 workers are required. Check 'workers.replicaCount'."}}
+  {{- end }}
+  replicas: {{ .Values.workers.replicaCount | int }}
   podManagementPolicy: Parallel
   selector:
     matchLabels:
@@ -33,29 +36,27 @@ spec:
         app: {{ .Release.Name }}
         component: worker
     spec:
+      {{- with .Values.image.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8}}
+      {{- end }}
       containers:
         - name: {{ .Release.Name }}-worker
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
-          {{- if .Values.workers.memory}}
           resources:
             limits:
               memory: {{ .Values.workers.memory.container.max }}
-              cpu: {{ .Values.workers.cpuCores }}
             requests:
               memory: {{ .Values.workers.memory.container.min }}
-              cpu: {{ .Values.workers.cpuCores }}
-          {{- end }}
-          {{- if .Values.workers.memory.heap }}
+              cpu: {{ .Values.workers.cpuCores | default 1 }}
           env:
             - name: HEAP_OPTS
               value: "-Xms{{ .Values.workers.memory.heap }} -Xmx{{ .Values.workers.memory.heap }}"
-          {{- end }}
           command: [ "/opt/benchmark/bin/benchmark-worker" ]
           ports:
             - containerPort: 8080
             - containerPort: 8081
-      {{- if and .Values.redpanda.tls.enabled .Values.redpanda.tls.caSecretRef }}
+      {{- if and .Values.redpanda.tls.enabled .Values.redpanda.tls.caSecretRef.name }}
           volumeMounts:
             - name: omb-ca
               mountPath: /opt/omb-ca

@@ -22,17 +22,26 @@ image:
   repository: docker.redpanda.com/openmessaging-benchmark/openmessaging-benchmark
   tag: latest
   pullPolicy: Always
+  # -- List of references to image pull secrets.
+  imagePullSecrets: []
+  #  - name: "secret name"
 
 redpanda:
   brokers: "localhost:9092"
   tls:
     enabled: false
+    # -- Reference to a k8s secret containing a trusted CA root certificate.
     caSecretRef:
-      name: redpanda-default-root-certificate
+      # -- Name of the k8s secret.
+      name: "" # redpanda-default-root-certificate
+      # -- Name of the key that contains the contents of the PEM-formatted CA root certificate.
       key: ca.crt
   sasl:
-    username: omb
+    # -- SASL username.
+    username: ""
+    # -- SASL password.
     password: ""
+    # -- SASL Mechanism. Supported values are: PLAIN, SCRAM-SHA-256, and SCRAM-SHA-512.
     mechanism: SCRAM-SHA-256
 
 # -- OMB Driver settings.
@@ -46,7 +55,7 @@ driver:
   # -- Kafka Request timeout
   requestTimeoutMs: 30000
   # -- Number of cpus to request for the driver.
-  cpuCores: 2
+  cpuCores: 1
   # -- Pod memory resource requests.
   memory:
     # -- JVM heap size (note: must use JVM heap values, not k8s memory sizes)
@@ -72,9 +81,9 @@ driver:
       # GKE, AWS & OpenStack).
       storageClass: ""
       # -- Additional labels to apply to the created PersistentVolumeClaims.
-      labels: { }
+      labels: {}
       # -- Additional annotations to apply to the created PersistentVolumeClaims.
-      annotations: { }
+      annotations: {}
 
 # -- OMB Worker settings.
 workers:
