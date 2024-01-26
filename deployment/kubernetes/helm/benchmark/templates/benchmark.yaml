@@ -20,26 +20,25 @@ metadata:
     app: {{ .Release.Name }}
     role: driver
 spec:
+  {{- with .Values.image.imagePullSecrets }}
+  imagePullSecrets: {{ toYaml . | nindent 8}}
+  {{- end }}
   containers:
     - name: {{ .Release.Name }}-driver
       image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
       imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
       stdin: true
       tty: true
-      {{- if or .Values.driver.memory .Values.driver.cpuCores }}
       resources:
-        {{- if .Values.driver.memory }}
         limits:
           memory: {{ .Values.driver.memory.container.max }}
-        {{- end }}
         requests:
           {{- if .Values.driver.memory }}
           memory: {{ .Values.driver.memory.container.min | default .Values.driver.memory.container.max }}
           {{- end }}
           {{- if .Values.driver.cpuCores }}
-          cpu: {{ .Values.driver.cpuCores | default 2 }}
+          cpu: {{ .Values.driver.cpuCores | default 1 }}
           {{- end }}
-      {{- end }}
       volumeMounts:
         - name: omb-config
           mountPath: /etc/omb
@@ -67,7 +66,7 @@ spec:
     - name: omb-results
       {{- if .Values.driver.storage.persistentVolume.enabled }}
       persistentVolumeClaim:
-        claimName: omb-results-pvc
+        claimName: {{ .Release.Name }}-results-pvc
       {{- else if .Values.driver.storage.hostPath }}
       hostPath:
         path: {{ .Values.driver.storage.hostPath | quote }}
