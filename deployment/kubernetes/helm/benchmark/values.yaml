@@ -27,6 +27,8 @@ image:
   #  - name: "secret name"
 
 redpanda:
+  # -- Name of the Redpanda cluster
+  name: redpanda
   brokers: "localhost:9092"
   tls:
     enabled: false
@@ -90,7 +92,7 @@ workers:
   # -- Number of OMB Worker pods to deploy in the StatefulSet. (OMB requires a minimum of 2.)
   replicaCount: 2
   # -- Number of cpus to request for a Worker pod.
-  cpuCores: 2
+  cpuCores: 1
   memory:
     # -- JVM heap size (note: must use JVM heap values, not k8s memory sizes)
     heap: 1756m

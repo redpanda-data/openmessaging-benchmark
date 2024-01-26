@@ -17,12 +17,32 @@ kind: Pod
 metadata:
   name: {{ .Release.Name }}-driver
   labels:
-    app: {{ .Release.Name }}
-    role: driver
+    app.kubernetes.io/app: {{ .Release.Name }}
+    role: omb-driver
 spec:
   {{- with .Values.image.imagePullSecrets }}
   imagePullSecrets: {{ toYaml . | nindent 8}}
   {{- end }}
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - {{ .Values.redpanda.name | default "redpanda" }}-statefulset
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - omb-worker
+          weight: 100
   containers:
     - name: {{ .Release.Name }}-driver
       image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
