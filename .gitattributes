@@ -1,0 +1,3 @@
+bin/benchmark           text eol=lf
+bin/benchmark-worker    text eol=lf
+docker/run.sh           text eol=lf
