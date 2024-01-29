@@ -16,6 +16,8 @@ package io.openmessaging.benchmark.driver;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+
+import lombok.Value;
 import org.apache.bookkeeper.stats.StatsLogger;
 
 /**
@@ -75,4 +77,11 @@ public interface BenchmarkDriver extends AutoCloseable {
         String topic,
         String subscriptionName,
         ConsumerCallback consumerCallback);
+
+    @Value
+    class TopicInfo {
+        String topic;
+        int partitions;
+    }
+
 }

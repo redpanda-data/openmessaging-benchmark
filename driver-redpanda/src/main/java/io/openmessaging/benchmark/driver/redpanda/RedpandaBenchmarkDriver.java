@@ -130,18 +130,13 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
     public CompletableFuture<Void> createTopic(String topic, int partitions) {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                log.info("Creating a topic: {}, with {} partitions and replication of: {}",
-                        topic, partitions, config.replicationFactor);
-                NewTopic newTopic = new NewTopic(topic, partitions, config.replicationFactor);
-                newTopic.configs(new HashMap<>((Map) topicProperties));
-                admin.createTopics(Arrays.asList(newTopic)).all().get();
-            } catch (InterruptedException | ExecutionException e) {
-                log.info("{}", e.toString());
-                throw new RuntimeException(e);
-            }
-        });
+        TopicInfo topicInfo = new TopicInfo(topic, partitions);
+        List<TopicInfo> topicInfos = new ArrayList<>();
+        topicInfos.add(topicInfo);
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Map<String, String> topicConfigs = new HashMap<>((Map) topicProperties);
+        RedpandaTopicCreator topicCreator = new RedpandaTopicCreator(admin, topicConfigs, config.replicationFactor);
+        return topicCreator.create(topicInfos);
     }
 
     @Override
