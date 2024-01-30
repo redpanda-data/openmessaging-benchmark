@@ -24,6 +24,7 @@ import io.netty.buffer.Unpooled;
 import io.openmessaging.benchmark.utils.ListPartition;
 import io.openmessaging.benchmark.worker.commands.*;
 import org.HdrHistogram.Histogram;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.asynchttpclient.AsyncHttpClient;
 import org.slf4j.Logger;
@@ -237,26 +238,23 @@ public class DistributedWorkersEnsemble implements Worker {
 
         final CumulativeLatencies stats = new CumulativeLatencies();
         individualStats.forEach(is -> Map.of(
-                        stats.publishLatency, is.publishLatencyBytes,
-                        stats.scheduleLatency, is.scheduleLatencyBytes,
-                        stats.publishDelayLatency, is.publishDelayLatencyBytes,
-                        stats.endToEndLatency, is.endToEndLatencyBytes)
-                .forEach((histogram, bytes) -> {
-                    final ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                        "Publish Latency", Triple.of(stats.publishLatency, is.publishLatencyBytes, TimeUnit.SECONDS.toMicros(30)),
+                        "Schedule Latency", Triple.of(stats.scheduleLatency, is.scheduleLatencyBytes, TimeUnit.SECONDS.toMicros(30)),
+                        "Publish Delay Latency", Triple.of(stats.publishDelayLatency, is.publishDelayLatencyBytes, TimeUnit.SECONDS.toMicros(30)),
+                        "End to End Latency", Triple.of(stats.endToEndLatency, is.endToEndLatencyBytes, TimeUnit.HOURS.toMicros(12)))
+                .forEach((name, triple) -> {
+                    final Histogram histogram = triple.getLeft();
+                    final ByteBuffer buffer = ByteBuffer.wrap(triple.getMiddle());
+                    final long micros = triple.getRight();
+                    Histogram otherHistogram = null;
                     try {
-                        histogram.add(Histogram.decodeFromCompressedByteBuffer(buffer,
-                                TimeUnit.SECONDS.toMicros(30)));
-                    } catch (ArrayIndexOutOfBoundsException e) {
-                        log.error("Error adding to histogram {}: {}", histogram, e);
-                        throw new RuntimeException(e);
-                    } catch (DataFormatException e) {
-                        log.error("Error decoding histogram buffer for {}: {}", histogram,
-                                ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(buffer)));
-                        throw new RuntimeException(e);
+                        otherHistogram = Histogram.decodeFromCompressedByteBuffer(buffer, micros);
                     } catch (Exception e) {
-                        log.error("Unhandled exception: {}", e);
+                        log.error("Failed to decode {}:\n{}", name,
+                                ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(is.publishDelayLatencyBytes)));
                         throw new RuntimeException(e);
                     }
+                    histogram.add(otherHistogram);
                 }));
 
         return stats;
