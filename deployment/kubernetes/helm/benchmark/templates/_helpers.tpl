@@ -47,7 +47,7 @@ http://{{ $name }}-worker-{{ $index0 }}.{{ $name }}-worker:8080{{ if ne $index1 
 Identify the security protocol from the driver settings.
 */}}
 {{- define "security.protocol" -}}
-{{- if .Values.redpanda.tls -}}
+{{- if .Values.redpanda.tls.enabled -}}
   {{- if .Values.redpanda.sasl.username -}}
 SASL_SSL
   {{- else -}}
