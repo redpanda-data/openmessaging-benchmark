@@ -13,47 +13,37 @@
  */
 package io.openmessaging.benchmark.worker;
 
-import static java.util.stream.Collectors.toList;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.zip.DataFormatException;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-
-import org.HdrHistogram.Histogram;
-import org.apache.pulsar.common.util.FutureUtil;
-import org.asynchttpclient.AsyncHttpClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.beust.jcommander.internal.Maps;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.openmessaging.benchmark.utils.ListPartition;
-import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
-import io.openmessaging.benchmark.worker.commands.CountersStats;
-import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
-import io.openmessaging.benchmark.worker.commands.PeriodStats;
-import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
-import io.openmessaging.benchmark.worker.commands.TopicSubscription;
-import io.openmessaging.benchmark.worker.commands.TopicsInfo;
-import static org.asynchttpclient.Dsl.*;
+import io.openmessaging.benchmark.worker.commands.*;
+import org.HdrHistogram.Histogram;
+import org.apache.pulsar.common.util.FutureUtil;
+import org.asynchttpclient.AsyncHttpClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.zip.DataFormatException;
+
+import static java.util.stream.Collectors.toList;
+import static org.asynchttpclient.Dsl.asyncHttpClient;
+import static org.asynchttpclient.Dsl.config;
 
 public class DistributedWorkersEnsemble implements Worker {
 
@@ -245,54 +235,31 @@ public class DistributedWorkersEnsemble implements Worker {
     public CumulativeLatencies getCumulativeLatencies() {
         List<CumulativeLatencies> individualStats = get(workers, "/cumulative-latencies", CumulativeLatencies.class);
 
-        CumulativeLatencies stats = new CumulativeLatencies();
-        individualStats.forEach(is -> {
-            try {
-                stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
-                        ByteBuffer.wrap(is.publishLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
-            } catch (Exception e) {
-                log.error("Failed to decode publish latency");
-                throw new RuntimeException(e);
-            }
-
-            try {
-                stats.scheduleLatency.add(Histogram.decodeFromCompressedByteBuffer(
-                    ByteBuffer.wrap(is.scheduleLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
-            } catch (Exception e) {
-                log.error("Failed to decode schedule latency");
-                throw new RuntimeException(e);
-            }
-
-            try {
-                stats.publishDelayLatency.add(Histogram.decodeFromCompressedByteBuffer(
-                        ByteBuffer.wrap(is.publishDelayLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
-            } catch (Exception e) {
-                log.error("Failed to decode publish delay latency: {}",
-                          ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(is.publishDelayLatencyBytes)));
-                throw new RuntimeException(e);
-            }
-
-            try {
-                stats.publishDelayLatency.add(Histogram.decodeFromCompressedByteBuffer(
-                        ByteBuffer.wrap(is.publishDelayLatencyBytes), TimeUnit.SECONDS.toMicros(30)));
-            } catch (Exception e) {
-                log.error("Failed to decode publish delay latency: {}",
-                          ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(is.publishDelayLatencyBytes)));
-                throw new RuntimeException(e);
-            }
-
-            try {
-                stats.endToEndLatency.add(Histogram.decodeFromCompressedByteBuffer(
-                        ByteBuffer.wrap(is.endToEndLatencyBytes), TimeUnit.HOURS.toMicros(12)));
-            } catch (Exception e) {
-                log.error("Failed to decode end-to-end latency: {}",
-                        ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(is.endToEndLatencyBytes)));
-                throw new RuntimeException(e);
-            }
-        });
+        final CumulativeLatencies stats = new CumulativeLatencies();
+        individualStats.forEach(is -> Map.of(
+                        stats.publishLatency, is.publishLatencyBytes,
+                        stats.scheduleLatency, is.scheduleLatencyBytes,
+                        stats.publishDelayLatency, is.publishDelayLatencyBytes,
+                        stats.endToEndLatency, is.endToEndLatencyBytes)
+                .forEach((histogram, bytes) -> {
+                    final ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                    try {
+                        histogram.add(Histogram.decodeFromCompressedByteBuffer(buffer,
+                                TimeUnit.SECONDS.toMicros(30)));
+                    } catch (ArrayIndexOutOfBoundsException e) {
+                        log.error("Error adding to histogram {}: {}", histogram, e);
+                        throw new RuntimeException(e);
+                    } catch (DataFormatException e) {
+                        log.error("Error decoding histogram buffer for {}: {}", histogram,
+                                ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(buffer)));
+                        throw new RuntimeException(e);
+                    } catch (Exception e) {
+                        log.error("Unhandled exception: {}", e);
+                        throw new RuntimeException(e);
+                    }
+                }));
 
         return stats;
-
     }
 
     @Override
