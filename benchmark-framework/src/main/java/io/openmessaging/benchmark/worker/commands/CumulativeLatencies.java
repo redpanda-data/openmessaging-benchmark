@@ -22,18 +22,18 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class CumulativeLatencies {
 
     @JsonIgnore
-    public Histogram publishLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
+    public Histogram publishLatency = new Histogram(5);
     public byte[] publishLatencyBytes;
 
     @JsonIgnore
-    public Histogram publishDelayLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
+    public Histogram publishDelayLatency = new Histogram(5);
     public byte[] publishDelayLatencyBytes;
 
     @JsonIgnore
-    public Histogram endToEndLatency = new Histogram(TimeUnit.HOURS.toMicros(12), 5);
+    public Histogram endToEndLatency = new Histogram(5);
     public byte[] endToEndLatencyBytes;
 
     @JsonIgnore
-    public Histogram scheduleLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
+    public Histogram scheduleLatency = new Histogram(5);
     public byte[] scheduleLatencyBytes;
 }
