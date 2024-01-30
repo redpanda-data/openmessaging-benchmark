@@ -24,6 +24,7 @@ import io.netty.buffer.Unpooled;
 import io.openmessaging.benchmark.utils.ListPartition;
 import io.openmessaging.benchmark.worker.commands.*;
 import org.HdrHistogram.Histogram;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.asynchttpclient.AsyncHttpClient;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import java.util.zip.DataFormatException;
 
 import static java.util.stream.Collectors.toList;
@@ -237,12 +239,13 @@ public class DistributedWorkersEnsemble implements Worker {
         List<CumulativeLatencies> individualStats = get(workers, "/cumulative-latencies", CumulativeLatencies.class);
 
         final CumulativeLatencies stats = new CumulativeLatencies();
-        individualStats.forEach(is -> Map.of(
-                        "Publish Latency", Triple.of(stats.publishLatency, is.publishLatencyBytes, TimeUnit.SECONDS.toMicros(30)),
-                        "Schedule Latency", Triple.of(stats.scheduleLatency, is.scheduleLatencyBytes, TimeUnit.SECONDS.toMicros(30)),
-                        "Publish Delay Latency", Triple.of(stats.publishDelayLatency, is.publishDelayLatencyBytes, TimeUnit.SECONDS.toMicros(30)),
-                        "End to End Latency", Triple.of(stats.endToEndLatency, is.endToEndLatencyBytes, TimeUnit.HOURS.toMicros(12)))
-                .forEach((name, triple) -> {
+        individualStats.forEach(is -> Stream.of(
+                        Pair.of("Publish Latency", Triple.of(stats.publishLatency, is.publishLatencyBytes, TimeUnit.SECONDS.toMicros(30))),
+                        Pair.of("Schedule Latency", Triple.of(stats.scheduleLatency, is.scheduleLatencyBytes, TimeUnit.SECONDS.toMicros(30))),
+                        Pair.of("Publish Delay Latency", Triple.of(stats.publishDelayLatency, is.publishDelayLatencyBytes, TimeUnit.SECONDS.toMicros(30))),
+                        Pair.of("End to End Latency", Triple.of(stats.endToEndLatency, is.endToEndLatencyBytes, TimeUnit.HOURS.toMicros(12))))
+                .forEach(pair -> {
+                    final Triple<Histogram, byte[], Long> triple = pair.getRight();
                     final Histogram histogram = triple.getLeft();
                     final ByteBuffer buffer = ByteBuffer.wrap(triple.getMiddle());
                     final long micros = triple.getRight();
@@ -250,7 +253,7 @@ public class DistributedWorkersEnsemble implements Worker {
                     try {
                         otherHistogram = Histogram.decodeFromCompressedByteBuffer(buffer, micros);
                     } catch (Exception e) {
-                        log.error("Failed to decode {}:\n{}", name,
+                        log.error("Failed to decode {}:\n{}", pair.getLeft(),
                                 ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(is.publishDelayLatencyBytes)));
                         throw new RuntimeException(e);
                     }
