@@ -39,10 +39,10 @@ JVM_GC_LOG="-XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime -XX:+UseGCLog
 # To help execution in Docker images, lean on JAVA_HOME to find java.
 if [ -z "${JAVA_HOME}" ]; then
   JAVA_EXE=java
-  echo 'Assuming java is in $PATH.' > /dev/stderr
+  echo "Assuming java is in \$PATH. Memory options: $JVM_MEM" > /dev/stderr
 else
   JAVA_EXE="${JAVA_HOME}/bin/java"
-  echo "Using java from: ${JAVA_EXE}" > /dev/stderr
+  echo "Using java from: ${JAVA_EXE}. Memory options: $JVM_MEM" > /dev/stderr
 fi
 exec "${JAVA_EXE}" -server $KAFKA_JMX_OPTS -cp $CLASSPATH $JAVA_OPTS $JVM_MEM $KAFKA_OPTS io.openmessaging.benchmark.worker.BenchmarkWorker $*
 
