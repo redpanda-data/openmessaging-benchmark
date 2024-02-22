@@ -390,6 +390,36 @@ public class WorkloadGenerator implements AutoCloseable {
         }
     }
 
+    static public void printPeriodStats(PeriodStats stats, double elapsedSeconds, double currentBacklog) {
+        double publishRate = stats.messagesSent / elapsedSeconds;
+        double consumeRate = stats.messagesReceived / elapsedSeconds;
+        double publishThroughput = stats.bytesSent / elapsedSeconds / 1024 / 1024;
+        double consumeThroughput = stats.bytesReceived / elapsedSeconds / 1024 / 1024;
+
+        log.info(
+            "Pub rate {} msg/s / {} MB/s | Cons rate {} msg/s / {} MB/s | Backlog: {} K | Pub Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {} | Pub Delay Latency (us) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
+            rateFormat.format(publishRate), throughputFormat.format(publishThroughput),
+            rateFormat.format(consumeRate), throughputFormat.format(consumeThroughput),
+            dec.format(currentBacklog / 1000.0), //
+            dec.format(microsToMillis(stats.publishLatency.getMean())),
+            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(50))),
+            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99))),
+            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
+            throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue())),
+            dec.format(stats.publishDelayLatency.getMean()),
+            dec.format(stats.publishDelayLatency.getValueAtPercentile(50)),
+            dec.format(stats.publishDelayLatency.getValueAtPercentile(99)),
+            dec.format(stats.publishDelayLatency.getValueAtPercentile(99.9)),
+            throughputFormat.format(stats.publishDelayLatency.getMaxValue()));
+
+        log.info("E2E Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
+            dec.format(microsToMillis(stats.endToEndLatency.getMean())),
+            dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50))),
+            dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99))),
+            dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.9))),
+            throughputFormat.format(microsToMillis(stats.endToEndLatency.getMaxValue())));
+    }
+
     private TestResult printAndCollectStats(long testDurations, TimeUnit unit) throws IOException {
         long startTime = System.nanoTime();
 
@@ -421,36 +451,12 @@ public class WorkloadGenerator implements AutoCloseable {
             double elapsed = (now - oldTime) / 1e9;
 
             double publishRate = stats.messagesSent / elapsed;
-            double publishThroughput = stats.bytesSent / elapsed / 1024 / 1024;
-
             double consumeRate = stats.messagesReceived / elapsed;
-            double consumeThroughput = stats.bytesReceived / elapsed / 1024 / 1024;
 
             long currentBacklog = workload.subscriptionsPerTopic * stats.totalMessagesSent
                     - stats.totalMessagesReceived;
 
-            log.info(
-                    "Pub rate {} msg/s / {} MB/s | Cons rate {} msg/s / {} MB/s | Backlog: {} K | Pub Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {} | Pub Delay Latency (us) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
-                    rateFormat.format(publishRate), throughputFormat.format(publishThroughput),
-                    rateFormat.format(consumeRate), throughputFormat.format(consumeThroughput),
-                    dec.format(currentBacklog / 1000.0), //
-                    dec.format(microsToMillis(stats.publishLatency.getMean())),
-                    dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(50))),
-                    dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99))),
-                    dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
-                    throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue())),
-                    dec.format(stats.publishDelayLatency.getMean()),
-                    dec.format(stats.publishDelayLatency.getValueAtPercentile(50)),
-                    dec.format(stats.publishDelayLatency.getValueAtPercentile(99)),
-                    dec.format(stats.publishDelayLatency.getValueAtPercentile(99.9)),
-                    throughputFormat.format(stats.publishDelayLatency.getMaxValue()));
-
-            log.info("E2E Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
-                    dec.format(microsToMillis(stats.endToEndLatency.getMean())),
-                    dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50))),
-                    dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99))),
-                    dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.9))),
-                    throughputFormat.format(microsToMillis(stats.endToEndLatency.getMaxValue())));
+            printPeriodStats(stats, elapsed, currentBacklog);
 
             result.sent.add(stats.messagesSent);
             result.consumed.add(stats.messagesReceived);

@@ -31,6 +31,7 @@ import com.google.common.io.Files;
 
 import io.javalin.Context;
 import io.javalin.Javalin;
+import io.openmessaging.benchmark.WorkloadGenerator;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
@@ -41,6 +42,7 @@ import io.openmessaging.benchmark.worker.commands.TopicsInfo;
 public class WorkerHandler {
 
     private final Worker localWorker;
+    volatile long lastPeriodStatsTime = -1;
 
     public WorkerHandler(Javalin app, StatsLogger statsLogger) {
         this.localWorker = new LocalWorker(statsLogger);
@@ -163,6 +165,15 @@ public class WorkerHandler {
 
     private void handlePeriodStats(Context ctx) throws Exception {
         PeriodStats stats = localWorker.getPeriodStats();
+
+        // We output the stats for the current worker to the log, in the same way as the driver, in order
+        // to have a per-worker record of these values (since the driver currently always aggregates metrics
+        // from all workers).
+        long now = System.nanoTime();
+        if (lastPeriodStatsTime != -1) {
+            WorkloadGenerator.printPeriodStats(stats, (now - lastPeriodStatsTime) / 1.e9, 0);
+        }
+        lastPeriodStatsTime = now;
 
         // Serialize histograms
         synchronized (serializeLock) {
