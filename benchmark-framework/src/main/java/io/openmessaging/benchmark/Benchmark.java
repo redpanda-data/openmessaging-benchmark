@@ -184,7 +184,7 @@ public class Benchmark {
                     try {
                         String beginTime = dateFormat.format(new Date());
                         File driverConfigFile = new File(driverConfig);
-                        DriverConfiguration driverConfiguration = mapper.readValue(driverConfigFile,
+                        DriverConfiguration driverConfiguration = tolerantMapper.readValue(driverConfigFile,
                                 DriverConfiguration.class);
                         log.info("--------------- WORKLOAD : {} --- DRIVER : {}---------------", workload.name,
                                 driverConfiguration.name);
@@ -235,8 +235,12 @@ public class Benchmark {
         System.exit(success ? 0 : 1);
     }
 
-    private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    // jackson mapper which allows unknown properties, which we need for driver config, since
+    // drivers config has arbitrary driver-specific properties
+    private static final ObjectMapper tolerantMapper = new ObjectMapper(new YAMLFactory())
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     static {
         mapper.enable(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE);
