@@ -433,8 +433,11 @@ if __name__ == "__main__":
 
     image_format = args.image_format
 
+    if not path.isdir(args.results_dir):
+        raise RuntimeError(f'--result path must exist and be a directory: {args.results_dir}')
+
     # Recursively fetch all json files in the results dir.
-    filelist = glob.iglob(path.join(args.results_dir, "**/*.json"), recursive=True)
+    filelist = list(glob.iglob(path.join(args.results_dir, "**/*.json"), recursive=True))
 
     generate_charts(filelist)
 
