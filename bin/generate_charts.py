@@ -24,6 +24,7 @@ import math
 import argparse
 import sys
 import re
+from typing import Any
 
 import pygal
 from pygal.style import Style
@@ -31,6 +32,10 @@ from itertools import chain
 from os import path
 from jinja2 import Template
 from collections import defaultdict
+
+# verbose print, if enabled on the command line
+vprint = print
+
 
 graph_colors = ['#545454', # dark gray
                 '#e2401b', # redpanda red1
@@ -192,6 +197,8 @@ def create_chart(title, y_title, time_series):
 
 
 def generate_charts(files):
+    vprint(f'Generating charts for result files: {files}')
+
     workloads = {}
 
     # Charts are labeled based on benchmark names, we need them
@@ -403,7 +410,19 @@ if __name__ == "__main__":
                         default='inline',
                         help='Specify put all workloads on a single set of charts')
 
+
+    parser.add_argument('--verbose',
+                        action='store_true',
+                        help='Enable verbose output suitable for debugging')
+
     args = parser.parse_args()
+
+    if (not args.verbose):
+        def print_nothing(*pargs: Any, **kwargs: Any):
+            pass
+        vprint = print_nothing
+
+    vprint('Verbose output enabled')
 
     prefixes = {}
 
