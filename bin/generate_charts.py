@@ -72,7 +72,7 @@ def _clean_xy_values(values):
         if x < 100.0: x = math.log10(100 / (100 - x))
         # clamp
         return min(x, 100.0)
- 
+
     xy_values = [(_x_axis(x), y) for x, y in values]
     needle_idx = len(xy_values)-1
     while needle_idx > 0:
@@ -106,7 +106,7 @@ def create_quantile_chart(title, y_label, time_series):
     chart.show_minor_x_labels=False
     chart.tooltip_border_radius=10
     for label, values, opts in time_series:
-        xy_values = _clean_xy_values(values)  
+        xy_values = _clean_xy_values(values)
         chart.add(label, xy_values, stroke_style=opts)
 
     return chart
@@ -181,7 +181,7 @@ def create_chart(title, y_title, time_series):
     chart.human_readable = True
     chart.y_title = y_title
     chart.x_title = 'Time (seconds)'
-    
+
     ys = []
     for label, values in time_series:
         ys.append(values)
@@ -461,7 +461,7 @@ if __name__ == "__main__":
         {{chart.render(disable_xml_declaration=True)}}
       {% else %}
         {% if image_format == 'svg' %}
-            {% set fileName = output  + re.sub("[()-/ ]",'', workload + "-" + chart.title.split(":")[0]) + ".svg" 
+            {% set fileName = output  + re.sub("[()-/ ]",'', workload + "-" + chart.title.split(":")[0]) + ".svg"
             | replace ("(","") %}
             {{ chart.render_to_file(fileName) or '' }}
             <div class="embed-responsive embed-responsive-4by3">
@@ -472,7 +472,7 @@ if __name__ == "__main__":
             | replace ("(","") %}
             {{ chart.render_to_png(fileName) or '' }}
             <img src="{{ fileName }}" class="img-fluid"/>
-            
+
         {% endif %}
       {% endif %}
     {% endfor %}
