@@ -339,12 +339,27 @@
         name: vm.max_map_count
         value: 92160
         state: present
-    - file: path=/opt/benchmark state=absent
+
+    # Copy tarfile first because unarchive isn't idempotent
     - name: Copy benchmark code
-      unarchive:
+      copy:
         src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
-    - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+      register: benchmark_archive
+    - stat:
+        path: /opt/benchmark
+      register: benchmark_directory
+    - when: benchmark_archive.changed or not benchmark_directory.stat.exists
+      block:
+      - file:
+          path: /opt/benchmark
+          state: absent
+      - name: Unarchive benchmark code
+        unarchive:
+          src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
+          dest: /opt
+      - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+
     #- shell: tuned-adm profile latency-performance
 
     - name: Get list of driver config files
