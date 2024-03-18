@@ -17,7 +17,7 @@
 
 ## Setup
 
-1. In the top level directory run `mvn clean install -Dlicense.skip=true`. This will build the benchmark client needed during deployment.
+1. In the top level directory run `mvn clean install -Dlicense.skip=true -pl '.,benchmark-framework,driver-api,driver-redpanda,package'`. This will build the benchmark client needed during deployment.
 
 2. Create an ssh key for the benchmark using the following: `ssh-keygen -f ~/.ssh/redpanda_aws`. Set the password to blank.
 
