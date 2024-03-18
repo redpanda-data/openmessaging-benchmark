@@ -33,7 +33,7 @@
 
 ```
         if [ "$(uname)" = "Darwin" ]; then export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES; fi
-        ansible-galaxy install -r requirements.yml
+        ansible-galaxy install -r requirements.yaml
         ansible-playbook deploy.yaml
 ```
 
