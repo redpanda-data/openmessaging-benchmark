@@ -17,28 +17,20 @@
 # under the License.
 #
 
-- name: Setup common packages on Redhat based systems
+- name: Setup common packages
   hosts: all
   connection: ssh
   become: true
   tasks:
-    - name: Remove sysstat
-      package:
-        name:
-          - sysstat
-        state: absent
     - name: Install packages
       package:
         name: 
           - mdadm
           - xfsprogs
           - iotop
-          - wget
           - sysstat
           - vim
           - chrony
-          - git
-          - gcc
           - tuned
         state: present
         update_cache: true
@@ -52,7 +44,7 @@
       when: ansible_os_family == 'Debian'
       package:
         name:
-          - openjdk-17-jdk
+          - openjdk-17-jre-headless
         state: present
 
 - name: set facts about drives
