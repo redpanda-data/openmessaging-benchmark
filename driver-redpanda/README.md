@@ -33,6 +33,7 @@
 
 ```
         if [ "$(uname)" = "Darwin" ]; then export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES; fi
+        if [ "$(uname)" = "Darwin" ]; then brew install gnu-tar; fi # https://github.com/prometheus-community/ansible/issues/186
         ansible-galaxy install -r requirements.yaml
         ansible-playbook deploy.yaml
 ```
