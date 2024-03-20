@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -217,8 +218,25 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
     @Override
     public void probeProducers() throws IOException {
-        producers.forEach(producer -> producer.sendAsync(Optional.of("key"), new byte[24])
-                .thenRun(() -> totalMessagesSent.increment()));
+        // Asynchronously have our local Producers produce a single message to force connectivity.
+        log.info("beginning probe of {} producers", producers.size());
+        int cnt = producers
+            .parallelStream()
+            .map(p -> p.sendAsync(Optional.of("key"), new byte[24]))
+            .mapToInt(f -> {
+                try {
+                    f.get(30, TimeUnit.SECONDS); // if we take longer than 30s to probe one producer, something is wrong!
+                    totalMessagesSent.increment();
+                } catch (Exception e) {
+                    log.error("error probing producer", e);
+                }
+                return 1;
+            })
+            .sum();
+        // Check our work and report success rate.
+        if (cnt != producers.size()) {
+            log.warn("only probed {}/{} producers", cnt, producers.size());
+        }
     }
 
     private void submitProducersToExecutor(List<BenchmarkProducer> producers, KeyDistributor keyDistributor, List<byte[]> payloads) {
