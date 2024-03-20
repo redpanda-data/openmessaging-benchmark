@@ -304,7 +304,22 @@ public class SwarmWorker implements Worker {
      * Send a request to multiple hosts and wait for all responses
      */
     private void sendPost(List<String> hosts, String path, byte[] body) {
-        FutureUtil.waitForAll(hosts.stream().map(w -> sendPost(w, path, body)).collect(toList())).join();
+        int cnt = hosts
+            .parallelStream()
+            .mapToInt(host -> {
+                try {
+                    sendPost(host, path, body).get(); // HTTP client has a timeout, so no timeout here.
+                } catch (Exception e) {
+                    // TODO: raise certain exceptions here?
+                    log.error("failed to send POST to {}{}", host, path, e);
+                    return 0;
+                }
+                return 1;
+            })
+            .sum();
+        if (cnt != hosts.size()) {
+            throw new RuntimeException("failed to successfully POST to all hosts");
+        }
     }
 
     private CompletableFuture<Void> sendPost(String host, String path, byte[] body) {
