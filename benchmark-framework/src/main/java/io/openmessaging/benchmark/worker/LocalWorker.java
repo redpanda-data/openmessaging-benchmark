@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Preconditions;
 
+import com.google.common.base.Throwables;
 import io.openmessaging.benchmark.utils.UniformRateLimiter;
 import org.HdrHistogram.Recorder;
 import org.apache.bookkeeper.stats.Counter;
@@ -229,16 +230,13 @@ public class LocalWorker implements Worker, ConsumerCallback {
                     totalMessagesSent.increment();
                 } catch (Exception e) {
                     log.error("error probing producer", e);
-                    return 0;
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
                 return 1;
             })
             .sum();
-        // Check our work and report success rate.
-        if (cnt != producers.size()) {
-            log.warn("only probed {}/{} producers", cnt, producers.size());
-            throw new IOException("unable to probe all producers");
-        }
+        log.debug("probed {} producers", cnt);
     }
 
     private void submitProducersToExecutor(List<BenchmarkProducer> producers, KeyDistributor keyDistributor, List<byte[]> payloads) {
