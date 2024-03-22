@@ -223,7 +223,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         log.info("beginning probe of {} producers", producers.size());
         int cnt = producers
             .parallelStream()
-            .map(p -> p.sendAsync(Optional.of("key"), new byte[24]))
+            .map(p -> p.sendAsync(Optional.empty(), new byte[24]))
             .mapToInt(f -> {
                 try {
                     f.get(1, TimeUnit.MINUTES); // if we take longer than 1m to probe, something is wrong!
