@@ -27,12 +27,14 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 
+import com.google.common.base.Throwables;
 import org.HdrHistogram.Histogram;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.asynchttpclient.AsyncHttpClient;
@@ -310,16 +312,14 @@ public class SwarmWorker implements Worker {
                 try {
                     sendPost(host, path, body).get(); // HTTP client has a timeout, so no timeout here.
                 } catch (Exception e) {
-                    // TODO: raise certain exceptions here?
                     log.error("failed to send POST to {}{}", host, path, e);
-                    return 0;
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
-                return 1;
+              return 1;
             })
             .sum();
-        if (cnt != hosts.size()) {
-            throw new RuntimeException("failed to successfully POST to all hosts");
-        }
+        log.debug("POST {} sent to {} hosts", path, cnt);
     }
 
     private CompletableFuture<Void> sendPost(String host, String path, byte[] body) {

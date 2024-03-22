@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -291,16 +292,14 @@ public class DistributedWorkersEnsemble implements Worker {
                 try {
                     sendPost(host, path, body).get(); // HTTP client has a timeout, so no timeout here.
                 } catch (Exception e) {
-                    // TODO: raise certain exceptions here?
                     log.error("failed to send POST to {}{}", host, path, e);
-                    return 0;
+                    Throwables.throwIfUnchecked(e);
+                    throw new RuntimeException(e);
                 }
                 return 1;
             })
             .sum();
-        if (cnt != hosts.size()) {
-            throw new RuntimeException("failed to successfully POST to all hosts");
-        }
+        log.debug("POST {} sent to {} hosts", path, cnt);
     }
 
     private CompletableFuture<Void> sendPost(String host, String path, byte[] body) {
