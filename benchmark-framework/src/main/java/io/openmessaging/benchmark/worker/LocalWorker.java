@@ -225,10 +225,11 @@ public class LocalWorker implements Worker, ConsumerCallback {
             .map(p -> p.sendAsync(Optional.of("key"), new byte[24]))
             .mapToInt(f -> {
                 try {
-                    f.get(30, TimeUnit.SECONDS); // if we take longer than 30s to probe one producer, something is wrong!
+                    f.get(1, TimeUnit.MINUTES); // if we take longer than 1m to probe, something is wrong!
                     totalMessagesSent.increment();
                 } catch (Exception e) {
                     log.error("error probing producer", e);
+                    return 0;
                 }
                 return 1;
             })
@@ -236,6 +237,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         // Check our work and report success rate.
         if (cnt != producers.size()) {
             log.warn("only probed {}/{} producers", cnt, producers.size());
+            throw new IOException("unable to probe all producers");
         }
     }
 
