@@ -208,11 +208,17 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
         for (BenchmarkProducer producer : producers) {
             producer.close();
         }
+        producers.clear();
 
         for (BenchmarkConsumer consumer : consumers) {
             consumer.close();
         }
-        admin.close();
+        consumers.clear();
+
+        if (admin != null) {
+            admin.close();
+            admin = null;
+        }
     }
 
     private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
