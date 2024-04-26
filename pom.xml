@@ -65,9 +65,9 @@
 			<plugin>
 				<groupId>com.mycila</groupId>
 				<artifactId>license-maven-plugin</artifactId>
-				<version>3.0</version>
+				<version>4.3</version>
 				<configuration>
-					<header>dev/license-header.txt</header>
+					<header>${project.parent.relativePath}/dev/license-header.txt</header>
 
 					<excludes>
 						<exclude>LICENSE</exclude>
@@ -78,7 +78,7 @@
 						<exclude>**/*.yml</exclude>
 						<exclude>**/*.j2</exclude>
 						<exclude>.github/**</exclude>
-						<exclude>driver-redpanda/**</exclude>
+						<exclude>deploy/**</exclude>
 					</excludes>
 					<mapping>
 						<benchmark>SCRIPT_STYLE</benchmark>
