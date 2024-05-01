@@ -20,6 +20,7 @@ import java.util.*;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import io.openmessaging.benchmark.driver.redpanda.Config;
 import org.apache.bookkeeper.stats.StatsLogger;
@@ -105,7 +106,9 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
                 try {
                     // List existing topics
                     ListTopicsResult result = admin.listTopics();
-                    Set<String> topics = result.names().get();
+                    Set<String> topics = result.names().get()
+                        .stream().filter(name -> !name.startsWith("_")) // filter "internal" topics
+                        .collect(Collectors.toSet());
                     log.info("About to delete: {}", String.join(",", topics));
                     // Delete all existing topics
                     DeleteTopicsResult deletes = admin.deleteTopics(topics);
