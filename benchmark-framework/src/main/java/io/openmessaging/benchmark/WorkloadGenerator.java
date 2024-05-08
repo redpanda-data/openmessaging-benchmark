@@ -14,6 +14,7 @@
 package io.openmessaging.benchmark;
 
 import io.openmessaging.benchmark.utils.RandomGenerator;
+import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -120,7 +121,15 @@ public class WorkloadGenerator implements AutoCloseable {
             }
         }
         else {
-            producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
+            File payloadFile = new File(workload.payloadFile);
+            if (payloadFile.isDirectory()) {
+                String[] payloadFileList = payloadFile.list();
+                for (String filename : payloadFileList) {
+                    producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
+                }
+            } else {
+                producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
+            }
         }
 
         worker.startLoad(producerWorkAssignment);
