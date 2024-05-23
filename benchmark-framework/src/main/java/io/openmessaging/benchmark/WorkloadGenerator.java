@@ -16,6 +16,7 @@ package io.openmessaging.benchmark;
 import io.openmessaging.benchmark.utils.RandomGenerator;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -71,14 +72,15 @@ public class WorkloadGenerator implements AutoCloseable {
         Timer timer = new Timer();
         TopicsInfo ti = TopicsInfo.fromWorkload(workload);
         List<String> topics = worker.createOrValidateTopics(ti);
-        log.info("{} {} topics in {} ms", ti.isExistingTopics() ? "Validated" : "Created", topics.size(), timer.elapsedMillis());
+        log.info("{} {} topics in {} ms", ti.isExistingTopics() ? "Validated" : "Created", topics.size(),
+                timer.elapsedMillis());
 
         if (ti.isExistingTopics()) {
-          createProducers(ti.existingProduceTopics);
-          createConsumers(ti.existingConsumeTopics);
+            createProducers(ti.existingProduceTopics);
+            createConsumers(ti.existingConsumeTopics);
         } else {
-          createConsumers(topics);
-          createProducers(topics);
+            createConsumers(topics);
+            createProducers(topics);
         }
 
         ensureTopicsAreReady();
@@ -106,27 +108,30 @@ public class WorkloadGenerator implements AutoCloseable {
         producerWorkAssignment.publishRate = targetPublishRate;
         producerWorkAssignment.payloadData = new ArrayList<>();
 
-        if(workload.useRandomizedPayloads) {
+        if (workload.useRandomizedPayloads) {
             // create messages that are part random and part zeros
             // better for testing effects of compression
             Random r = new Random();
-            int randomBytes = (int)(workload.messageSize * workload.randomBytesRatio);
+            int randomBytes = (int) (workload.messageSize * workload.randomBytesRatio);
             int zerodBytes = workload.messageSize - randomBytes;
-            for(int i = 0; i<workload.randomizedPayloadPoolSize; i++) {
+            for (int i = 0; i < workload.randomizedPayloadPoolSize; i++) {
                 byte[] randArray = new byte[randomBytes];
                 r.nextBytes(randArray);
                 byte[] zerodArray = new byte[zerodBytes];
                 byte[] combined = ArrayUtils.addAll(randArray, zerodArray);
                 producerWorkAssignment.payloadData.add(combined);
             }
-        }
-        else {
+        } else {
             File payloadFile = new File(workload.payloadFile);
             if (payloadFile.isDirectory()) {
                 String[] payloadFileList = payloadFile.list();
                 for (String filename : payloadFileList) {
-                    producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
+                    System.err.println("*** jcipar loading file " + filename);
+                    producerWorkAssignment.payloadData
+                            .add(payloadReader.load(Paths.get(workload.payloadFile, filename).toString()));
                 }
+                System.err.println("*** jcipar Loaded payload files from directory");
+                ;
             } else {
                 producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
             }
@@ -318,12 +323,12 @@ public class WorkloadGenerator implements AutoCloseable {
     private void createConsumers(List<String> topics) throws IOException {
         ConsumerAssignment consumerAssignment = new ConsumerAssignment();
 
-        for(String topic: topics){
-            for(int i = 0; i < workload.subscriptionsPerTopic; i++){
+        for (String topic : topics) {
+            for (int i = 0; i < workload.subscriptionsPerTopic; i++) {
                 String subscriptionName = String.format("sub-%03d-%s", i, RandomGenerator.getRandomString());
                 for (int j = 0; j < workload.consumerPerSubscription; j++) {
                     consumerAssignment.topicsSubscriptions
-                        .add(new TopicSubscription(topic, subscriptionName));
+                            .add(new TopicSubscription(topic, subscriptionName));
                 }
             }
         }
@@ -406,27 +411,27 @@ public class WorkloadGenerator implements AutoCloseable {
         double consumeThroughput = stats.bytesReceived / elapsedSeconds / 1024 / 1024;
 
         log.info(
-            "Pub rate {} msg/s / {} MB/s | Cons rate {} msg/s / {} MB/s | Backlog: {} K | Pub Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {} | Pub Delay Latency (us) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
-            rateFormat.format(publishRate), throughputFormat.format(publishThroughput),
-            rateFormat.format(consumeRate), throughputFormat.format(consumeThroughput),
-            dec.format(currentBacklog / 1000.0), //
-            dec.format(microsToMillis(stats.publishLatency.getMean())),
-            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(50))),
-            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99))),
-            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
-            throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue())),
-            dec.format(stats.publishDelayLatency.getMean()),
-            dec.format(stats.publishDelayLatency.getValueAtPercentile(50)),
-            dec.format(stats.publishDelayLatency.getValueAtPercentile(99)),
-            dec.format(stats.publishDelayLatency.getValueAtPercentile(99.9)),
-            throughputFormat.format(stats.publishDelayLatency.getMaxValue()));
+                "Pub rate {} msg/s / {} MB/s | Cons rate {} msg/s / {} MB/s | Backlog: {} K | Pub Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {} | Pub Delay Latency (us) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
+                rateFormat.format(publishRate), throughputFormat.format(publishThroughput),
+                rateFormat.format(consumeRate), throughputFormat.format(consumeThroughput),
+                dec.format(currentBacklog / 1000.0), //
+                dec.format(microsToMillis(stats.publishLatency.getMean())),
+                dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(50))),
+                dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99))),
+                dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
+                throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue())),
+                dec.format(stats.publishDelayLatency.getMean()),
+                dec.format(stats.publishDelayLatency.getValueAtPercentile(50)),
+                dec.format(stats.publishDelayLatency.getValueAtPercentile(99)),
+                dec.format(stats.publishDelayLatency.getValueAtPercentile(99.9)),
+                throughputFormat.format(stats.publishDelayLatency.getMaxValue()));
 
         log.info("E2E Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
-            dec.format(microsToMillis(stats.endToEndLatency.getMean())),
-            dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50))),
-            dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99))),
-            dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.9))),
-            throughputFormat.format(microsToMillis(stats.endToEndLatency.getMaxValue())));
+                dec.format(microsToMillis(stats.endToEndLatency.getMean())),
+                dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50))),
+                dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99))),
+                dec.format(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.9))),
+                throughputFormat.format(microsToMillis(stats.endToEndLatency.getMaxValue())));
     }
 
     private TestResult printAndCollectStats(long testDurations, TimeUnit unit) throws IOException {
@@ -511,7 +516,8 @@ public class WorkloadGenerator implements AutoCloseable {
             result.endToEndLatencyMax.add(microsToMillis(stats.endToEndLatency.getMaxValue()));
 
             if (now >= testEndTime && !needToWaitForBacklogDraining) {
-                CumulativeLatencies agg = worker.getCumulativeLatencies();;
+                CumulativeLatencies agg = worker.getCumulativeLatencies();
+                ;
 
                 log.info(
                         "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {} | Pub Delay (us)  avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",
