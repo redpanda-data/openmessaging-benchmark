@@ -155,6 +155,14 @@ public class WorkloadGenerator implements AutoCloseable {
     }
 
     private void ensureTopicsAreReady() throws IOException {
+
+        if (workload.getConsumerCount() == 0) {
+            // no consumers so the check below will always time out, so just
+            // short-circuit here
+            log.info("Not waiting for consumers because there are none");
+            return;
+        }
+
         log.info("Waiting for consumers to be ready");
         // This is work around the fact that there's no way to have a consumer ready in
         // Kafka without first publishing

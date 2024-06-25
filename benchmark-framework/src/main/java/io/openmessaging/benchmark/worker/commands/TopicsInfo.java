@@ -71,8 +71,7 @@ public class TopicsInfo {
      */
     public static TopicsInfo fromWorkload(Workload w) {
         Preconditions.checkNotNull(w);
-        boolean usingExistingTopics = !w.existingTopicList.isEmpty() || !w.existingConsumeTopicList.isEmpty() || !w.existingProduceTopicList.isEmpty();
-        Preconditions.checkArgument(w.topics > 0 != usingExistingTopics);
+        Preconditions.checkArgument(w.topics > 0 != w.isUsingExistingTopics());
         if (w.topics > 0) {
             return new TopicsInfo(w.topics, w.partitionsPerTopic);
         } else {
