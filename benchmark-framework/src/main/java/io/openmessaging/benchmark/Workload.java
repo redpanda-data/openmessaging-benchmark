@@ -71,6 +71,24 @@ public class Workload {
     public int sampleRateMillis = 10000;
     public int testDurationMinutes;
 
+
+    /**
+     * Return true if existing topics are being used or false if the workload will create its own topics.
+     */
+    public boolean isUsingExistingTopics() {
+        return !existingTopicList.isEmpty() || !existingConsumeTopicList.isEmpty() || !existingProduceTopicList.isEmpty();
+    }
+    /**
+     * Return the total number of consumers defined in the workload.
+     */
+    public int getConsumerCount() {
+        int topicCount = topics;
+        if (isUsingExistingTopics()) {
+            topicCount = existingTopicList.size() + existingConsumeTopicList.size();
+        }
+        return topicCount * subscriptionsPerTopic * consumerPerSubscription;
+    }
+
     /**
      * Perform basic validation on the workload and throw an exception if
      * any invalid configuration is found.
@@ -86,7 +104,7 @@ public class Workload {
         checkNonNegative(producerRate, "producerRate");
         checkNonNegative(consumerBacklogSizeGB, "consumerBacklogSizeGB");
 
-        boolean usingExistingTopics = !existingTopicList.isEmpty() || !existingConsumeTopicList.isEmpty() || !existingProduceTopicList.isEmpty();
+        boolean usingExistingTopics = isUsingExistingTopics();
 
         if (topics > 0 && usingExistingTopics) {
             throw new RuntimeException(String.format(
