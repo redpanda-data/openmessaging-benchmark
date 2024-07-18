@@ -11,52 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.openmessaging.benchmark.driver.redpanda;
+package io.openmessaging.benchmark.driver.redpanda.tx;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+import io.openmessaging.benchmark.driver.BenchmarkConsumer;
+import io.openmessaging.benchmark.driver.BenchmarkProducer;
+import io.openmessaging.benchmark.driver.ConsumerCallback;
+import io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriverBase;
 
 import org.apache.bookkeeper.stats.StatsLogger;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.DeleteTopicsResult;
-import org.apache.kafka.clients.admin.ListTopicsOptions;
-import org.apache.kafka.clients.admin.ListTopicsResult;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.KafkaFuture;
-import org.apache.kafka.common.errors.UnknownTopicIdException;
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-
-import io.openmessaging.benchmark.driver.BenchmarkConsumer;
-import io.openmessaging.benchmark.driver.BenchmarkDriver;
-import io.openmessaging.benchmark.driver.BenchmarkProducer;
-import io.openmessaging.benchmark.driver.ConsumerCallback;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RedpandaBenchmarkDriver extends RedpandaBenchmarkDriverBase {
-    private static final Logger log = LoggerFactory.getLogger(RedpandaBenchmarkDriver.class);
+    private final AtomicInteger producerId = new AtomicInteger(0);
+    private Config extra_config;
+
+    @Override
+    public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
+        extra_config = mapper.readValue(configurationFile, Config.class);
+        super.initialize(configurationFile, statsLogger);
+    }
 
     @Override
     public CompletableFuture<BenchmarkProducer> createProducer(String topic) {
-        KafkaProducer<String, byte[]> kafkaProducer = new KafkaProducer<>(producerProperties);
-        BenchmarkProducer benchmarkProducer = new RedpandaBenchmarkProducer(kafkaProducer, topic);
+        Properties properties = producerProperties;
+        properties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG,
+                String.format("omb-tx-%d-%s", producerId.getAndIncrement(), UUID.randomUUID()));
+        KafkaProducer<String, byte[]> kafkaProducer = new KafkaProducer<>(properties);
+        // initialize producer transactions
+
+        BenchmarkProducer benchmarkProducer = new RedpandaBenchmarkProducer(kafkaProducer, topic,
+                extra_config.requestsPerTransaction);
         try {
             // Add to producer list to close later
             producers.add(benchmarkProducer);
@@ -72,7 +65,8 @@ public class RedpandaBenchmarkDriver extends RedpandaBenchmarkDriverBase {
     @Override
     public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
             ConsumerCallback consumerCallback) {
-        Properties properties = new Properties(consumerProperties);
+        Properties properties = new Properties();
+        consumerProperties.forEach((key, value) -> properties.put(key, value));
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscriptionName);
         KafkaConsumer<String, byte[]> kafkaConsumer = new KafkaConsumer<>(properties);
         try {
@@ -80,8 +74,9 @@ public class RedpandaBenchmarkDriver extends RedpandaBenchmarkDriverBase {
             kafkaConsumer.subscribe(Arrays.asList(topic));
 
             // Start polling
-            BenchmarkConsumer benchmarkConsumer = new RedpandaBenchmarkConsumer(kafkaConsumer, consumerProperties,
-                    consumerCallback);
+            BenchmarkConsumer benchmarkConsumer = new io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkConsumer(
+                    kafkaConsumer, consumerProperties,
+                    consumerCallback, 5000);
 
             // Add to consumer list to close later
             consumers.add(benchmarkConsumer);

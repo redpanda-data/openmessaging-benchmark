@@ -13,42 +13,21 @@
  */
 package io.openmessaging.benchmark.driver.redpanda.swarm;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
 import java.util.*;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-
 import io.openmessaging.benchmark.driver.redpanda.Config;
-import org.apache.bookkeeper.stats.StatsLogger;
+import io.openmessaging.benchmark.driver.redpanda.RedpandaBenchmarkDriverBase;
+
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.DeleteTopicsResult;
-import org.apache.kafka.clients.admin.ListTopicsResult;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-
 import io.openmessaging.benchmark.driver.BenchmarkConsumer;
-import io.openmessaging.benchmark.driver.BenchmarkDriver;
 import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class RedpandaBenchmarkDriver implements BenchmarkDriver {
+public class RedpandaBenchmarkDriver extends RedpandaBenchmarkDriverBase {
     private UUID nodeId = UUID.randomUUID();
     private static int INIT_RETRIES = 5;
 
@@ -73,85 +52,6 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
         long high = bb.getLong();
         long low = bb.getLong();
         return new UUID(high, low);
-    }
-
-    @Override
-    public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
-        config = mapper.readValue(configurationFile, Config.class);
-
-        Properties commonProperties = new Properties();
-        commonProperties.load(new StringReader(config.commonConfig));
-
-        producerProperties = new Properties();
-        commonProperties.forEach((key, value) -> producerProperties.put(key, value));
-        producerProperties.load(new StringReader(config.producerConfig));
-        producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
-
-        consumerProperties = new Properties();
-        commonProperties.forEach((key, value) -> consumerProperties.put(key, value));
-        consumerProperties.load(new StringReader(config.consumerConfig));
-        consumerProperties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        consumerProperties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-
-        topicProperties = new Properties();
-        topicProperties.load(new StringReader(config.topicConfig));
-
-        admin = AdminClient.create(commonProperties);
-
-        if (config.reset) {
-            int retry = 0;
-
-            while (true) {
-                try {
-                    // List existing topics
-                    ListTopicsResult result = admin.listTopics();
-                    Set<String> topics = result.names().get()
-                        .stream().filter(name -> !name.startsWith("_")) // filter "internal" topics
-                        .collect(Collectors.toSet());
-                    log.info("About to delete: {}", String.join(",", topics));
-                    // Delete all existing topics
-                    DeleteTopicsResult deletes = admin.deleteTopics(topics);
-                    deletes.all().get();
-                    return;
-                } catch (InterruptedException | ExecutionException e1) {
-                    if (retry >= INIT_RETRIES) {
-                        e1.printStackTrace();
-                        throw new RuntimeException(e1);
-                    }
-                    retry++;
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e2) {
-                        throw new RuntimeException(e2);
-                    }
-                }
-            }
-        }
-    }
-
-    @Override
-    public String getTopicNamePrefix() {
-        return "test-topic";
-    }
-
-    private static final Logger log = LoggerFactory.getLogger(RedpandaBenchmarkDriver.class);
-
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    @Override
-    public CompletableFuture<Void> createTopic(String topic, int partitions) {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                log.info("Creating a topic: {}, with {} partitions and replication of: {}",
-                        topic, partitions, config.replicationFactor);
-                NewTopic newTopic = new NewTopic(topic, partitions, config.replicationFactor);
-                newTopic.configs(new HashMap<>((Map) topicProperties));
-                admin.createTopics(Arrays.asList(newTopic)).all().get();
-            } catch (InterruptedException | ExecutionException e) {
-                log.info("{}", e.toString());
-                throw new RuntimeException(e);
-            }
-        });
     }
 
     @Override
@@ -182,7 +82,8 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
             kafkaConsumer.subscribe(Arrays.asList(topic));
 
             // Start polling
-            BenchmarkConsumer benchmarkConsumer = new RedpandaBenchmarkConsumer(nodeId, kafkaConsumer, consumerCallback);
+            BenchmarkConsumer benchmarkConsumer = new RedpandaBenchmarkConsumer(nodeId, kafkaConsumer,
+                    consumerCallback);
 
             // Add to consumer list to close later
             consumers.add(benchmarkConsumer);
@@ -207,6 +108,4 @@ public class RedpandaBenchmarkDriver implements BenchmarkDriver {
         admin.close();
     }
 
-    private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 }
