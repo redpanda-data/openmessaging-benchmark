@@ -66,7 +66,7 @@ public class RedpandaBenchmarkDriver extends RedpandaBenchmarkDriverBase {
     public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
             ConsumerCallback consumerCallback) {
         Properties properties = new Properties();
-        consumerProperties.forEach((key, value) -> properties.put(key, value));
+        properties.putAll(consumerProperties);
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscriptionName);
         KafkaConsumer<String, byte[]> kafkaConsumer = new KafkaConsumer<>(properties);
         try {
