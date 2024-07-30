@@ -40,9 +40,10 @@ public class FilePayloadReader implements PayloadReader {
     }
 
     private void checkPayloadLength(byte[] payload) {
-        if (expectedLength != payload.length) {
-            throw new PayloadException(MessageFormat.format("Payload length mismatch. Actual is: {0}, but expected: {1} ",
-                    payload.length, expectedLength));
-        }
+        // if (expectedLength != payload.length) {
+        // throw new PayloadException(MessageFormat.format("Payload length mismatch.
+        // Actual is: {0}, but expected: {1} ",
+        // payload.length, expectedLength));
+        // }
     }
 }
