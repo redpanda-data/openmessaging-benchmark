@@ -157,6 +157,14 @@ resource "aws_security_group" "benchmark_security_group" {
   #   cidr_blocks = ["0.0.0.0/0"]
   # }
 
+  # Allow pings between ec2 instances
+   ingress {
+     from_port   = 8
+     to_port     = 0
+     protocol    = "icmp"
+     cidr_blocks = ["10.0.0.0/16"]
+   }
+
   # All ports open within the VPC
   ingress {
     from_port   = 0
