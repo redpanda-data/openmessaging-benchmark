@@ -50,8 +50,6 @@ variable "num_instances" {
   type = map
 }
 
-variable "owner" {}
-
 variable "machine_architecture" {
   description = "Architecture used for selecting the AMI - change this if using ARM based instances"
   default     = "x86_64"
@@ -75,13 +73,21 @@ variable "client_ami" {
   description = "AMI for Redpanda client nodes (if not set, will select based on the client_distro variable"
   default     = null
 }
+
+data "aws_caller_identity" "current" {}
+
+locals {
+    user_id    = data.aws_caller_identity.current.user_id
+}
+
+
 # Create a VPC to launch our instances into
 resource "aws_vpc" "benchmark_vpc" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
     Name  = "RedPanda-Benchmark-VPC-${random_id.hash.hex}"
-    owner = "${var.owner}"
+    owner = "${local.user_id}"
   }
 }
 
@@ -205,7 +211,7 @@ resource "aws_security_group" "benchmark_security_group" {
 
   tags = {
     Name  = "Benchmark-Security-Group-${random_id.hash.hex}"
-    owner = "${var.owner}"
+    owner = "${local.user_id}"
   }
 }
 
@@ -225,7 +231,7 @@ resource "aws_instance" "redpanda" {
 
   tags = {
     Name  = "redpanda-${count.index}"
-    owner = "${var.owner}"
+    owner = "${local.user_id}"
   }
 }
 
@@ -240,7 +246,7 @@ resource "aws_instance" "client" {
 
   tags = {
     Name  = "redpanda-client-${count.index}"
-    owner = "${var.owner}"
+    owner = "${local.user_id}"
   }
 }
 
@@ -254,7 +260,7 @@ resource "aws_instance" "prometheus" {
 
   tags = {
     Name  = "prometheus-${count.index}"
-    owner = "${var.owner}"
+    owner = "${local.user_id}"
   }
 }
 

@@ -1,6 +1,5 @@
 public_key_path = "~/.ssh/redpanda_aws.pub"
 
-owner           = "redpanda"
 region          = "us-west-2"
 # arm64 ubuntu focal
 machine_architecture = "arm64"
