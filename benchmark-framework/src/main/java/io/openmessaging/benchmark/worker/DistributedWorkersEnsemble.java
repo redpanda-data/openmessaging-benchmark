@@ -144,7 +144,9 @@ public class DistributedWorkersEnsemble implements Worker {
     @Override
     public void startLoad(ProducerWorkAssignment producerWorkAssignment) throws IOException {
         // Reduce the publish rate across all the brokers
-        producerWorkAssignment.publishRate /= numberOfUsedProducerWorkers;
+        if (numberOfUsedProducerWorkers != 0) {
+            producerWorkAssignment.publishRate /= numberOfUsedProducerWorkers;
+        }
         sendPost(producerWorkers, "/start-load", writer.writeValueAsBytes(producerWorkAssignment));
     }
 
