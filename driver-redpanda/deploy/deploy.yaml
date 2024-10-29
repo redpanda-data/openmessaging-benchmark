@@ -473,10 +473,10 @@
       basicAuth: false
     grafana_dashboards:
     - dashboard_id: 1860
-      revision_id: 21
+      revision_id: 37
       datasource: prometheus
     - dashboard_id: 18135
-      revision_id: 1
+      revision_id: 3
       datasource: prometheus
     - dashboard_id: 18133
       revision_id: 1
@@ -488,6 +488,9 @@
       revision_id: 1
       datasource: prometheus
     - dashboard_id: 7496
+      revision_id: 1
+      datasource: prometheus
+    - dashboard_id: 22164
       revision_id: 1
       datasource: prometheus
   tags:
