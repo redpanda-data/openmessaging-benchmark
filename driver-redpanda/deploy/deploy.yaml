@@ -17,28 +17,23 @@
 # under the License.
 #
 
-- name: Setup common packages on Redhat based systems
+- name: Setup common packages
   hosts: all
-  connection: ssh
+  gather_subset:
+    - "!all"
+    - "!min"
+    - "os_family"
   become: true
   tasks:
-    - name: Remove sysstat
-      package:
-        name:
-          - sysstat
-        state: absent
     - name: Install packages
       package:
         name: 
           - mdadm
           - xfsprogs
           - iotop
-          - wget
           - sysstat
           - vim
           - chrony
-          - git
-          - gcc
           - tuned
         state: present
         update_cache: true
@@ -52,7 +47,7 @@
       when: ansible_os_family == 'Debian'
       package:
         name:
-          - openjdk-17-jdk
+          - openjdk-17-jre-headless
         state: present
 
 - name: set facts about drives
@@ -70,6 +65,7 @@
   hosts:
     - redpanda
     - client
+  gather_facts: false
   tags: server
   tasks:
   - block:
@@ -89,6 +85,7 @@
   hosts:
     - redpanda
     - client
+  gather_facts: false
   tasks:
   - block:
     - name: update syslog file size limits
@@ -111,6 +108,7 @@
 
 - name: Format raid drives if more then 2 drives
   hosts: redpanda
+  gather_facts: false
   tasks:
   - block: 
     - name: define mdadm_arrays variable
@@ -128,9 +126,9 @@
         name: mrlesmithjr.mdadm
     when: nvme_devices_for_raid|length > 1
 
-
 - name: created a non raid disk
   hosts: redpanda
+  gather_facts: false
   tasks:
     - block: 
       - name: create xfs file system
@@ -147,6 +145,7 @@
 
 - name: configure the data path
   hosts: redpanda
+  gather_facts: false
   tasks: 
   - name: data path
     file:
@@ -166,7 +165,7 @@
 
 - name: Store server lists
   hosts: all
-  connection: ssh
+  gather_facts: false
   tags: client
   tasks:
     - set_fact:
@@ -175,6 +174,10 @@
 
 - name: install redpanda
   hosts: redpanda
+  gather_subset:
+    - "!all"
+    - "!min"
+    - "os_family"
   tasks:
     - set_fact:
         setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh
@@ -286,7 +289,10 @@
 
 - name: Chrony setup
   hosts: client
-  connection: ssh
+  gather_subset:
+    - "!all"
+    - "!min"
+    - "os_family"
   become: true
   tasks:
     - name: Set chrony path
@@ -312,6 +318,7 @@
     - sasl
     - client
   hosts: all
+  gather_facts: false
   tasks:
     - set_fact:
         sasl_username: "{{ sasl_username | default('admin') }}"
@@ -320,7 +327,10 @@
 
 - name: Setup Benchmark client
   hosts: client
-  connection: ssh
+  gather_subset:
+    - "!all"
+    - "!min"
+    - "hardware"
   become: true
   tags: client
   tasks:
@@ -329,12 +339,27 @@
         name: vm.max_map_count
         value: 92160
         state: present
-    - file: path=/opt/benchmark state=absent
+
+    # Copy tarfile first because unarchive isn't idempotent
     - name: Copy benchmark code
-      unarchive:
+      copy:
         src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
-    - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+      register: benchmark_archive
+    - stat:
+        path: /opt/benchmark
+      register: benchmark_directory
+    - when: benchmark_archive.changed or not benchmark_directory.stat.exists
+      block:
+      - file:
+          path: /opt/benchmark
+          state: absent
+      - name: Unarchive benchmark code
+        unarchive:
+          src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
+          dest: /opt
+      - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+
     #- shell: tuned-adm profile latency-performance
 
     - name: Get list of driver config files
@@ -426,6 +451,7 @@
 # Install the monitoring stack
 - name: Install Node Exporter
   hosts: redpanda, client
+  gather_facts: false
   roles:
   - geerlingguy.node_exporter
   vars:
@@ -438,7 +464,14 @@
   tags:
     - node_exporter
 
+- name: Get facts for Prometheus config
+  hosts: redpanda, client
+  gather_facts: true
+  tags:
+    - prometheus
+
 - hosts: prometheus
+  gather_facts: false
   roles:
   - prometheus.prometheus.prometheus
   vars:
@@ -458,6 +491,7 @@
     - prometheus
 
 - hosts: prometheus
+  gather_facts: false
   roles: 
     - grafana.grafana.grafana
   vars:
@@ -498,6 +532,7 @@
 
 - name: TLS facts
   hosts: all,localhost
+  gather_facts: false
   tags: tls
   tasks:
     - set_fact:
