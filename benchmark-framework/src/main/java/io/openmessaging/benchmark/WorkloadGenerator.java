@@ -123,9 +123,14 @@ public class WorkloadGenerator implements AutoCloseable {
         else {
             File payloadFile = new File(workload.payloadFile);
             if (payloadFile.isDirectory()) {
-                String[] payloadFileList = payloadFile.list();
-                for (String filename : payloadFileList) {
-                    producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
+                File[] payloadFileList = payloadFile.listFiles();
+
+                if (payloadFileList.length == 0) {
+                    throw new IllegalArgumentException("Payload file must either point to a file or a directory with one or more payload files");
+                }
+
+                for (File payloadF : payloadFileList) {
+                    producerWorkAssignment.payloadData.add(payloadReader.load(payloadF.getAbsolutePath()));
                 }
             } else {
                 producerWorkAssignment.payloadData.add(payloadReader.load(workload.payloadFile));
