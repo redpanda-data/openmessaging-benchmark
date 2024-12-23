@@ -29,6 +29,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.asynchttpclient.AsyncHttpClient;
+import org.asynchttpclient.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -305,12 +306,8 @@ public class DistributedWorkersEnsemble implements Worker {
     }
 
     private CompletableFuture<Void> sendPost(String host, String path, byte[] body) {
-        return httpClient.preparePost(host + path).setBody(body).execute().toCompletableFuture().thenApply(x -> {
-            if (x.getStatusCode() != 200) {
-                log.error("Failed to do HTTP post request to {}{} -- code: {} error: {}", host, path, x.getStatusCode(),
-                        x.getResponseBody());
-            }
-            Preconditions.checkArgument(x.getStatusCode() == 200, "Status should be 200");
+        return httpClient.preparePost(host + path).setBody(body).execute().toCompletableFuture().thenApply(response -> {
+            assertSuccess(response, host, path);
             return (Void) null;
         });
     }
@@ -332,11 +329,7 @@ public class DistributedWorkersEnsemble implements Worker {
     private <T> CompletableFuture<T> get(String host, String path, Class<T> clazz) {
         return httpClient.prepareGet(host + path).execute().toCompletableFuture().thenApply(response -> {
             try {
-                if (response.getStatusCode() != 200) {
-                    log.error("Failed to do HTTP get request to {}{} -- code: {}", host, path,
-                            response.getStatusCode());
-                }
-                Preconditions.checkArgument(response.getStatusCode() == 200, "Status should be 200");
+                assertSuccess(response, host, path);
                 return mapper.readValue(response.getResponseBody(), clazz);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -347,15 +340,27 @@ public class DistributedWorkersEnsemble implements Worker {
     private <T> CompletableFuture<T> post(String host, String path, byte[] body, Class<T> clazz) {
         return httpClient.preparePost(host + path).setBody(body).execute().toCompletableFuture().thenApply(response -> {
             try {
-                if (response.getStatusCode() != 200) {
-                    log.error("Failed to do HTTP post request to {}{} -- code: {}", host, path, response.getStatusCode());
-                }
-                Preconditions.checkArgument(response.getStatusCode() == 200, "Status should be 200");
+                assertSuccess(response, host, path);
                 return mapper.readValue(response.getResponseBody(), clazz);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    /**
+     * Assert that the status code is exactly 200, log and throw otherwise.
+     * @param response the response to check
+     * @param path the path of the request, to create a better error message
+     */
+    private static void assertSuccess(Response response, String host, String path) {
+        int code = response.getStatusCode();
+        if (code != 200) {
+            String errorMsg = String.format("Worker request failed (status != 200), status: %d, host: %s path: %s",
+                code, host, path);
+            log.error(errorMsg);
+            throw new RuntimeException(errorMsg);
+        }
     }
 
     @Override
