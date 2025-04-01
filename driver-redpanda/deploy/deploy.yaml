@@ -17,60 +17,81 @@
 # under the License.
 #
 
-- name: Setup common packages on Redhat based systems
-  hosts: all
-  connection: ssh
+- hosts: control,client
+  become: true
+  gather_facts: false
+  tasks:
+    - shell: killall java || true
+
+- name: Setup packages
+  hosts: control,client
   become: true
   tasks:
-    - name: Remove sysstat
-      package:
-        name:
-          - sysstat
-        state: absent
-    - name: Install packages
-      package:
-        name: 
-          - mdadm
-          - xfsprogs
-          - iotop
-          - wget
-          - sysstat
-          - vim
-          - chrony
-          - git
-          - gcc
-          - tuned
-        state: present
-        update_cache: true
-    - name: Install Java Redhat
-      when: ansible_os_family == 'RedHat'
-      package: 
-        name: 
-          - java-11
-        state: present
-    - name: Install Java on Debian
+    - name: Install packages on Debian
       when: ansible_os_family == 'Debian'
       package:
         name:
-          - openjdk-17-jdk
+          - chrony
+          - openjdk-17-jre-headless
         state: present
+        update_cache: true
 
-- name: set facts about drives
-  hosts: redpanda
-  tasks:
-  - set_fact: 
-      device_info: "{{ hostvars[inventory_hostname].ansible_devices }}"
-      nvme_device_ids: "{{ hostvars[inventory_hostname].ansible_devices.keys() | map('regex_search', 'nvme.*') | select('string') | list }}" 
-  - set_fact: 
-      nvme_devices_for_raid: '{{ (nvme_devices_for_raid | default([])) + ["/dev/" + item] }}'
-    loop: '{{ nvme_device_ids }}'
-    when: device_info[item]["partitions"] | length == 0
+
+# - name: Setup common packages
+#   hosts: all
+#   connection: ssh
+#   become: true
+#   tasks:
+#     - name: Remove sysstat
+#       package:
+#         name:
+#           - sysstat
+#         state: absent
+#     - name: Install packages
+#       package:
+#         name: 
+#           - mdadm
+#           - xfsprogs
+#           - iotop
+#           - wget
+#           - sysstat
+#           - vim
+#           - chrony
+#           - git
+#           - gcc
+#           - tuned
+#         state: present
+#         update_cache: true
+#     - name: Install Java Redhat
+#       when: ansible_os_family == 'RedHat'
+#       package: 
+#         name: 
+#           - java-11
+#         state: present
+#     - name: Install Java on Debian
+#       when: ansible_os_family == 'Debian'
+#       package:
+#         name:
+#           - openjdk-17-jdk
+#         state: present
+
+# - name: set facts about drives
+#   hosts: redpanda
+#   tasks:
+#   - set_fact: 
+#       device_info: "{{ hostvars[inventory_hostname].ansible_devices }}"
+#       nvme_device_ids: "{{ hostvars[inventory_hostname].ansible_devices.keys() | map('regex_search', 'nvme.*') | select('string') | list }}" 
+#   - set_fact: 
+#       nvme_devices_for_raid: '{{ (nvme_devices_for_raid | default([])) + ["/dev/" + item] }}'
+#     loop: '{{ nvme_device_ids }}'
+#     when: device_info[item]["partitions"] | length == 0
 
 - name: Journal configuration changes
   hosts:
     - redpanda
     - client
   tags: server
+  become: true
   tasks:
   - block:
     - name: Limit size of journal
@@ -89,6 +110,7 @@
   hosts:
     - redpanda
     - client
+  become: true
   tasks:
   - block:
     - name: update syslog file size limits
@@ -109,180 +131,178 @@
         state: restarted
       when: conf_rsyslog_default.changed
 
-- name: Format raid drives if more then 2 drives
-  hosts: redpanda
-  tasks:
-  - block: 
-    - name: define mdadm_arrays variable
-      set_fact:
-        mdadm_arrays:
-        - name: md0
-          devices: '{{ nvme_devices_for_raid }}'
-          filesystem: xfs
-          level: 0
-          mountpoint: /mnt/vectorized
-          state: present
+# - name: Format raid drives if more then 2 drives
+#   hosts: redpanda
+#   tasks:
+#   - block: 
+#     - name: define mdadm_arrays variable
+#       set_fact:
+#         mdadm_arrays:
+#         - name: md0
+#           devices: '{{ nvme_devices_for_raid }}'
+#           filesystem: xfs
+#           level: 0
+#           mountpoint: /mnt/vectorized
+#           state: present
 
-    - name: run mdadm
-      include_role: 
-        name: mrlesmithjr.mdadm
-    when: nvme_devices_for_raid|length > 1
+#     - name: run mdadm
+#       include_role: 
+#         name: mrlesmithjr.mdadm
+#     when: nvme_devices_for_raid|length > 1
 
 
-- name: created a non raid disk
-  hosts: redpanda
-  tasks:
-    - block: 
-      - name: create xfs file system
-        filesystem: 
-          fstype: xfs
-          dev: '{{ nvme_devices_for_raid[0] }}'
-      - name: mount nvme device
-        mount:
-          path: /mnt/vectorized
-          src: '{{ nvme_devices_for_raid[0] }}'
-          fstype: xfs
-          state: mounted 
-      when: nvme_devices_for_raid|length == 1
+# - name: created a non raid disk
+#   hosts: redpanda
+#   tasks:
+#     - block: 
+#       - name: create xfs file system
+#         filesystem: 
+#           fstype: xfs
+#           dev: '{{ nvme_devices_for_raid[0] }}'
+#       - name: mount nvme device
+#         mount:
+#           path: /mnt/vectorized
+#           src: '{{ nvme_devices_for_raid[0] }}'
+#           fstype: xfs
+#           state: mounted 
+#       when: nvme_devices_for_raid|length == 1
 
-- name: configure the data path
-  hosts: redpanda
-  tasks: 
-  - name: data path
-    file:
-      path: /mnt/vectorized/redpanda
-      state: directory
-      owner: root
-      group: root
-      mode: ugo=rwx
-  - name: set premissions
-    file:
-      dest: /var/lib/redpanda
-      src: /mnt/vectorized/redpanda
-      state: link
-      owner: root
-      group: root
-      mode: ugo=rwx
+# - name: configure the data path
+#   hosts: redpanda
+#   tasks: 
+#   - name: data path
+#     file:
+#       path: /mnt/vectorized/redpanda
+#       state: directory
+#       owner: root
+#       group: root
+#       mode: ugo=rwx
+#   - name: set premissions
+#     file:
+#       dest: /var/lib/redpanda
+#       src: /mnt/vectorized/redpanda
+#       state: link
+#       owner: root
+#       group: root
+#       mode: ugo=rwx
 
 - name: Store server lists
   hosts: all
-  connection: ssh
-  tags: client
   tasks:
     - set_fact:
         bootstrapServers: "{{ groups['redpanda'] | map('extract', hostvars, ['private_ip']) | map('regex_replace', '^(.*)$', '\\1:9092') | join(',') | default(bootstrapServers) }}"
       when: bootstrapServers is not defined
 
-- name: install redpanda
-  hosts: redpanda
-  tasks:
-    - set_fact:
-        setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh
-      when:
-        - channel | default('stable') == 'stable'
-        -  ansible_os_family == 'Debian'
-    - set_fact:
-        setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.rpm.sh
-      when:
-        - channel | default('stable') == 'stable'
-        -  ansible_os_family == 'RedHat'
-    - set_fact:
-        setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.deb.sh
-      when:
-        - channel | default('stable') == 'unstable'
-        -  ansible_os_family == 'Debian'
-    - set_fact:
-        setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.rpm.sh
-      when:
-        - channel | default('stable') == 'unstable'
-        -  ansible_os_family == 'RedHat'
+# - name: install redpanda
+#   hosts: redpanda
+#   tasks:
+#     - set_fact:
+#         setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh
+#       when:
+#         - channel | default('stable') == 'stable'
+#         -  ansible_os_family == 'Debian'
+#     - set_fact:
+#         setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.rpm.sh
+#       when:
+#         - channel | default('stable') == 'stable'
+#         -  ansible_os_family == 'RedHat'
+#     - set_fact:
+#         setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.deb.sh
+#       when:
+#         - channel | default('stable') == 'unstable'
+#         -  ansible_os_family == 'Debian'
+#     - set_fact:
+#         setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.rpm.sh
+#       when:
+#         - channel | default('stable') == 'unstable'
+#         -  ansible_os_family == 'RedHat'
 
-    - name: add the redpanda repo
-      shell: |
-        curl -1sLf {{ setup_repo }} | sudo -E bash
-    - name: install redpanda
-      package:
-        name:
-          - "{{ redpanda_package | default('redpanda')}}"
-        state: present
-        update_cache: yes
-    - name: set data dir file perms
-      file:
-        path: /var/lib/redpanda/data
-        owner: redpanda
-        group: redpanda
+#     - name: add the redpanda repo
+#       shell: |
+#         curl -1sLf {{ setup_repo }} | sudo -E bash
+#     - name: install redpanda
+#       package:
+#         name:
+#           - "{{ redpanda_package | default('redpanda')}}"
+#         state: present
+#         update_cache: yes
+#     - name: set data dir file perms
+#       file:
+#         path: /var/lib/redpanda/data
+#         owner: redpanda
+#         group: redpanda
 
-- hosts: redpanda
-  tasks:
-  - name: ensure /etc/redpanda exists
-    file:
-      path: /etc/redpanda
-      state: directory
+# - hosts: redpanda
+#   tasks:
+#   - name: ensure /etc/redpanda exists
+#     file:
+#       path: /etc/redpanda
+#       state: directory
 
-  - name: configure redpanda
-    notify:
-      - fix config owner
-      - restart redpanda-tuner
-      - restart redpanda
-    vars:
-      seed_private_ip: '{{ hostvars[groups["redpanda"][0]].private_ip }}'
-    shell: |
-      rpk config set cluster_id 'test'
-      rpk config set organization 'vectorized.io'
-      rpk config set redpanda.advertised_kafka_api '{
-        address: {{ hostvars[inventory_hostname].private_ip }},
-        port: 9092
-      }' --format yaml
-      rpk config set redpanda.advertised_rpc_api '{
-        address: {{ hostvars[inventory_hostname].private_ip }},
-        port: 33145
-      }' --format yaml
-      rpk mode production
+#   - name: configure redpanda
+#     notify:
+#       - fix config owner
+#       - restart redpanda-tuner
+#       - restart redpanda
+#     vars:
+#       seed_private_ip: '{{ hostvars[groups["redpanda"][0]].private_ip }}'
+#     shell: |
+#       rpk config set cluster_id 'test'
+#       rpk config set organization 'vectorized.io'
+#       rpk config set redpanda.advertised_kafka_api '{
+#         address: {{ hostvars[inventory_hostname].private_ip }},
+#         port: 9092
+#       }' --format yaml
+#       rpk config set redpanda.advertised_rpc_api '{
+#         address: {{ hostvars[inventory_hostname].private_ip }},
+#         port: 33145
+#       }' --format yaml
+#       rpk mode production
 
-      {% if hostvars[groups['redpanda'][0]].id == hostvars[inventory_hostname].id %}
-      sudo rpk config bootstrap \
-        --id {{ groups['redpanda'].index(inventory_hostname) }} \
-        --self {{ hostvars[inventory_hostname].private_ip }}
+#       {% if hostvars[groups['redpanda'][0]].id == hostvars[inventory_hostname].id %}
+#       sudo rpk config bootstrap \
+#         --id {{ groups['redpanda'].index(inventory_hostname) }} \
+#         --self {{ hostvars[inventory_hostname].private_ip }}
 
-      {% else %}
+#       {% else %}
 
-      sudo rpk config bootstrap \
-        --id {{ groups['redpanda'].index(inventory_hostname) }} \
-        --self {{ hostvars[inventory_hostname].private_ip }} \
-        --ips {{ seed_private_ip }}
-      {% endif %}
+#       sudo rpk config bootstrap \
+#         --id {{ groups['redpanda'].index(inventory_hostname) }} \
+#         --self {{ hostvars[inventory_hostname].private_ip }} \
+#         --ips {{ seed_private_ip }}
+#       {% endif %}
 
-      rpk redpanda config set 'rpk.admin_api' "
-            brokers:
-              - {{ hostvars[inventory_hostname].private_ip }}:9644
-        " --format yaml
+#       rpk redpanda config set 'rpk.admin_api' "
+#             brokers:
+#               - {{ hostvars[inventory_hostname].private_ip }}:9644
+#         " --format yaml
 
-      rpk redpanda config set 'rpk.kafka_api' "
-            brokers:
-              - {{ hostvars[inventory_hostname].private_ip }}:9092
-        " --format yaml
+#       rpk redpanda config set 'rpk.kafka_api' "
+#             brokers:
+#               - {{ hostvars[inventory_hostname].private_ip }}:9092
+#         " --format yaml
 
-  handlers:
-  - name: fix config owner
-    file:
-      path: /etc/redpanda
-      owner: redpanda
-      group: redpanda
-      mode: 0750
-      state: directory
-      recurse: yes
-  - name: restart redpanda-tuner
-    systemd:
-      name: redpanda-tuner
-      state: restarted
-  - name: restart redpanda
-    systemd:
-      name: redpanda
-      state: restarted
-  - name: restart prometheus
-    systemd:
-      name: prometheus
-      state: restarted
+#   handlers:
+#   - name: fix config owner
+#     file:
+#       path: /etc/redpanda
+#       owner: redpanda
+#       group: redpanda
+#       mode: 0750
+#       state: directory
+#       recurse: yes
+#   - name: restart redpanda-tuner
+#     systemd:
+#       name: redpanda-tuner
+#       state: restarted
+#   - name: restart redpanda
+#     systemd:
+#       name: redpanda
+#       state: restarted
+#   - name: restart prometheus
+#     systemd:
+#       name: prometheus
+#       state: restarted
 
 - name: Chrony setup
   hosts: client
@@ -301,16 +321,15 @@
       template:
         src: "templates/chrony.conf"
         dest: "{{ chrony_path }}"
+      register: conf_chronyd
     - systemd:
         state: restarted
         daemon_reload: yes
         name: "chronyd"
+      when: conf_chronyd.changed
   tags: chrony
 
 - name: SASL facts
-  tags:
-    - sasl
-    - client
   hosts: all
   tasks:
     - set_fact:
@@ -318,27 +337,55 @@
         sasl_password: "{{ sasl_password | default('admin') }}"
       when: sasl_enabled| default(False)|bool == True
 
-- name: Setup Benchmark client
-  hosts: client
-  connection: ssh
+- name: Upload Benchmark code
+  hosts: control
   become: true
-  tags: client
   tasks:
-      # value for 50G java heap, adjust upwards as necessary when benchmark-worker complains
-    - ansible.posix.sysctl:
-        name: vm.max_map_count
-        value: 92160
-        state: present
-    - file: path=/opt/benchmark state=absent
     - name: Copy benchmark code
-      unarchive:
+      throttle: 1
+      copy:
         src: ../../package/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
         dest: /opt
-    - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
-    #- shell: tuned-adm profile latency-performance
+      register: benchmark_archive
+
+    - name: Install benchmark code HTTP server
+      template:
+        src: "templates/benchmark-code-server.service"
+        dest: "/etc/systemd/system/benchmark-code-server.service"
+
+    - name: "Restart benchmark code HTTP server"
+      systemd:
+        state: restarted
+        name: "benchmark-code-server"
+    
+    - stat:
+        path: /opt/benchmark
+      register: benchmark_directory
+
+    - when: benchmark_archive.changed or not benchmark_directory.stat.exists
+      block:
+      - file:
+          path: /opt/benchmark
+          state: absent
+      - name: Unarchive benchmark code
+        unarchive:
+          remote_src: true
+          src: /opt/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
+          dest: /opt
+      - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+    
+    - name: Configure memory
+      lineinfile:
+        dest: /opt/benchmark/bin/benchmark
+        regexp: "^JVM_MEM="
+        line: 'JVM_MEM="-Xmx4G"'
 
     - name: Get list of driver config files
-      raw: ls -1 /opt/benchmark/driver-redpanda/*.yaml
+      find:
+        paths:
+          - /opt/benchmark/driver-redpanda/
+        patterns:
+          - "*.yaml"
       register: drivers_list
 
     - name: Configure URL
@@ -346,7 +393,7 @@
         dest: "{{ item }}"
         regexp: "^  bootstrap.servers="
         line: "  bootstrap.servers={{ bootstrapServers }}"
-      with_items: "{{ drivers_list.stdout_lines }}"
+      with_items: "{{ drivers_list.files | map(attribute='path') }}"
 
     - name: Configure SASL Mechanism
       lineinfile:
@@ -354,7 +401,7 @@
         regexp: "^  sasl.mechanism="
         insertafter: "^  bootstrap.servers="
         line: "  sasl.mechanism=SCRAM-SHA-256"
-      with_items: "{{ drivers_list.stdout_lines }}"
+      with_items: "{{ drivers_list.files | map(attribute='path') }}"
       when: sasl_enabled| default(False)|bool == True
 
     - name: Configure Benchmark Name
@@ -362,7 +409,7 @@
         dest: "{{ item }}"
         regexp: "^name: Redpanda"
         line: "name: Redpanda{{ '+SASL' if sasl_enabled | default(False) | bool == True }}{{ '+TLS' if tls_enabled | default(False)|bool == True }}+{{ groups['redpanda'] | length  }}x{{ instance_type }}"
-      with_items: "{{ drivers_list.stdout_lines }}"
+      with_items: "{{ drivers_list.files | map(attribute='path') }}"
 
     - name: Configure Security Protocol
       lineinfile:
@@ -370,7 +417,7 @@
         regexp: "^  security.protocol="
         insertafter: "^  bootstrap.servers="
         line: "  security.protocol={{ 'SASL_' if sasl_enabled | default(False) | bool == True }}{{ 'SSL' if tls_enabled | default(False) | bool == True else 'PLAINTEXT' }}"
-      with_items: "{{ drivers_list.stdout_lines }}"
+      with_items: "{{ drivers_list.files | map(attribute='path') }}"
       when: (sasl_enabled| default(False)|bool == True ) or (tls_enabled| default(False)|bool == True )
 
     - name: Configure JAAS
@@ -379,42 +426,94 @@
         regexp: "^  sasl.jaas.config="
         insertafter: "^  bootstrap.servers="
         line: "  sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username='{{ sasl_username }}' password='{{ sasl_password }}';"
-      with_items: "{{ drivers_list.stdout_lines }}"
+      with_items: "{{ drivers_list.files | map(attribute='path') }}"
       when: sasl_enabled| default(False)|bool == True
+
+    - name: Create workers.yaml
+      template:
+        src: "templates/workers.yaml"
+        dest: "/opt/benchmark/workers.yaml"
+
+- name: Transfer Benchmark code
+  hosts: client
+  become: true
+  tasks:
+    - name: Transfer benchmark code
+      get_url:
+        url:  "http://{{ hostvars[groups['control'][0]].private_ip }}:6000/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz"
+        dest: /opt
+      register: benchmark_archive
+
+    - stat:
+        path: /opt/benchmark
+      register: benchmark_directory
+
+    - when: benchmark_archive.changed or not benchmark_directory.stat.exists
+      block:
+      - file:
+          path: /opt/benchmark
+          state: absent
+      - name: Unarchive benchmark code
+        unarchive:
+          remote_src: true
+          src: /opt/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz
+          dest: /opt
+      - shell: mv /opt/openmessaging-benchmark-0.0.1-SNAPSHOT /opt/benchmark
+
+    #- shell: tuned-adm profile latency-performance
+
+    # value for 50G java heap, adjust upwards as necessary when benchmark-worker complains
+    - ansible.posix.sysctl:
+        name: vm.max_map_count
+        value: 92160
+        state: present
 
     - name: Configure memory benchmark-worker
       lineinfile:
         dest: /opt/benchmark/bin/benchmark-worker
         regexp: "^JVM_MEM="
-        line: 'JVM_MEM="-Xms50G -Xmx50G -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ParallelRefProcEnabled -XX:+DoEscapeAnalysis -XX:ParallelGCThreads=12 -XX:ConcGCThreads=12 -XX:+DisableExplicitGC -XX:-ResizePLAB"'
-    - name: Configure memory
-      lineinfile:
-        dest: /opt/benchmark/bin/benchmark
-        regexp: "^JVM_MEM="
-        line: 'JVM_MEM="-Xmx4G"'
+        line: 'JVM_MEM="-Xms{{ (ansible_memtotal_mb - 1024)|int }}m -Xmx{{ (ansible_memtotal_mb - 1024)|int }}m -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ParallelRefProcEnabled -XX:+DoEscapeAnalysis -XX:+DisableExplicitGC -XX:-ResizePLAB"'
+
+- name: Update Benchmark configurations
+  hosts: client, control
+  become: true
+  tasks:
+
+    - name: Setup log4j2 for benchmark-runner
+      template:
+        src: "templates/log4j2-benchmark-runner.yaml"
+        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
+    - name: Setup log4j2 for benchmark-worker
+      template:
+        src: "templates/log4j2-benchmark-worker.yaml"
+        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
+
     - name: Setup JMX for Producer/Consumer clients
       copy:
         src: "monitoring/jmx_exporter/jmx_prometheus_javaagent-0.13.0.jar"
         dest: "/opt/benchmark/jmx_prometheus_javaagent-0.13.0.jar"
-    - name: Setup log4j2 for benchmark-runner
-      copy:
-        src: "templates/log4j2-benchmark-runner.yaml"
-        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
-    - name: Setup log4j2 for benchmark-worker
-      copy:
-        src: "templates/log4j2-benchmark-worker.yaml"
-        dest: "/opt/benchmark/log4j2-benchmark-worker.yaml"
+
     - name: Configure JMX for Prometheus (Client)
       template:
         src: "monitoring/jmx_exporter/client.yml"
         dest: "/opt/benchmark/metrics.yml"
-    - template:
-        src: "templates/workers.yaml"
-        dest: "/opt/benchmark/workers.yaml"
+
+    - name: Copy workloads
+      template:
+        src: "{{ item }}"
+        dest: "/opt/benchmark/driver-redpanda/deploy/workloads/"
+      with_fileglob:
+        - "workloads/*.yaml"
+
+- name: Start Benchmark client
+  hosts: client
+  become: true
+  tasks:
     - name: Install benchmark systemd service
       template:
         src: "templates/benchmark-worker.service"
         dest: "/etc/systemd/system/benchmark-worker.service"
+
     - name: "Restart benchmark worker"
       tags:
         - configure
@@ -426,15 +525,17 @@
 # Install the monitoring stack
 - name: Install Node Exporter
   hosts: redpanda, client
-  roles:
-  - geerlingguy.node_exporter
+  tasks:
+    - when: groups["prometheus"]|length>0
+      include_role:
+        name: geerlingguy.node_exporter
   vars:
-  - node_exporter_enabled_collectors: [ntp]
-  - dist_architecture: {
+    node_exporter_enabled_collectors: [ntp]
+    dist_architecture: {
       "aarch64": "arm64",
       "x86_64": "amd64"
     }
-  - node_exporter_arch: "{{ [ansible_architecture] | map('extract', dist_architecture) | first }}"
+    node_exporter_arch: "{{ [ansible_architecture] | map('extract', dist_architecture) | first }}"
   tags:
     - node_exporter
 
@@ -497,6 +598,7 @@
     - prometheus
 
 - name: TLS facts
+  gather_facts: false
   hosts: all,localhost
   tags: tls
   tasks:
