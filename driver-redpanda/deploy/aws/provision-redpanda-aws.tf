@@ -184,7 +184,7 @@ resource "aws_security_group" "benchmark_security_group" {
     from_port   = 0
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["${chomp(data.http.myip.body)}/32"]
+    cidr_blocks = ["${chomp(data.http.myip.response_body)}/32"]
   }
 
   #Prometheus/Dashboard access
