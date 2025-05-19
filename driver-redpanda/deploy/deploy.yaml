@@ -176,22 +176,26 @@
 - name: install redpanda
   hosts: redpanda
   tasks:
-    - set_fact:
+    - name: Set Redpanda repo (Debian, stable)
+      set_fact:
         setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh
       when:
         - channel | default('stable') == 'stable'
         -  ansible_os_family == 'Debian'
-    - set_fact:
+    - name: Set Redpanda repo (RedHat, stable)
+      set_fact:
         setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.rpm.sh
       when:
         - channel | default('stable') == 'stable'
         -  ansible_os_family == 'RedHat'
-    - set_fact:
+    - name: Set Redpanda repo (Debian, unstable)
+      set_fact:
         setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.deb.sh
       when:
         - channel | default('stable') == 'unstable'
         -  ansible_os_family == 'Debian'
-    - set_fact:
+    - name: Set Redpanda repo (RedHat, unstable)
+      set_fact:
         setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.rpm.sh
       when:
         - channel | default('stable') == 'unstable'
@@ -301,10 +305,12 @@
       template:
         src: "templates/chrony.conf"
         dest: "{{ chrony_path }}"
+      register: conf_chronyd
     - systemd:
         state: restarted
         daemon_reload: yes
         name: "chronyd"
+      when: conf_chronyd.changed
   tags: chrony
 
 - name: SASL facts
@@ -427,14 +433,13 @@
 - name: Install Node Exporter
   hosts: redpanda, client
   roles:
-  - geerlingguy.node_exporter
+    - geerlingguy.node_exporter
   vars:
-  - node_exporter_enabled_collectors: [ntp]
-  - dist_architecture: {
-      "aarch64": "arm64",
-      "x86_64": "amd64"
-    }
-  - node_exporter_arch: "{{ [ansible_architecture] | map('extract', dist_architecture) | first }}"
+    node_exporter_enabled_collectors: [ntp]
+    dist_architecture:
+      aarch64: arm64
+      x86_64: amd64
+    node_exporter_arch: "{{ dist_architecture[ansible_architecture] | string }}"
   tags:
     - node_exporter
 

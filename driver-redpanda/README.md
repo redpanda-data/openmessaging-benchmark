@@ -21,22 +21,40 @@
 
 2. Create an ssh key for the benchmark using the following: `ssh-keygen -f ~/.ssh/redpanda_aws`. Set the password to blank.
 
-3. In the `driver-redpanda/deploy` directory.  Run the following: 
+3. In the `driver-redpanda/deploy` directory set an environment variable for your cloud provider and then run the terraform apply. 
+
 ```
-	cp terraform.tfvars.example terraform.tfvars
-        terraform init
-        aws sts get-caller-identity || aws sso login
-        terraform apply -auto-approve
+        export REDPANDA_CLOUD_PROVIDER=aws
 ```
 
-4. To setup the deployed nodes. Run:
+```
+	cp ${REDPANDA_CLOUD_PROVIDER}/terraform.tfvars.example ${REDPANDA_CLOUD_PROVIDER}/terraform.tfvars
+        terraform -chdir=${REDPANDA_CLOUD_PROVIDER} init
+        aws sts get-caller-identity || aws sso login
+        terraform -chdir=${REDPANDA_CLOUD_PROVIDER} apply --auto-approve
+```
+
+4. To setup the deployed nodes. Run the ansible playbook.  If running locally include `--ask-become-pass` and supply your admin password when prompted.   If running on a cloud VM run the command as `sudo` instead.
 
 ```
         if [ "$(uname)" = "Darwin" ]; then export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES; fi
         if [ "$(uname)" = "Darwin" ]; then brew install gnu-tar; fi # https://github.com/prometheus-community/ansible/issues/186
         ansible-galaxy install -r requirements.yaml
-        ansible-playbook deploy.yaml
+
+        ansible-playbook --inventory ${REDPANDA_CLOUD_PROVIDER}/hosts.ini --ask-become-pass deploy.yaml
 ```
+
+To instead use an existing BYOC cluster, run the ansible playbook as follows.
+
+```
+        ansible-playbook --inventory  ${REDPANDA_CLOUD_PROVIDER}/hosts.ini \
+        --ask-become-pass \
+        -e "tls_enabled=true sasl_enabled=true sasl_username=<YOUR SASL USER> sasl_password=<YOUR SASL PASSWORD>" \
+        -e bootstrapServers="<YOUR BYOC KAFKA API ENDPOINT>" \
+        deploy.yaml
+```
+
+---
 
 ## Running the benchmark
 
@@ -87,5 +105,7 @@ The output of this command is web page with charts for throughput, publish laten
 
 Once you are done. Tear down the cluster with the following command: 
 
-	terraform destroy -auto-approve
 
+```bash
+	terraform -chdir=${REDPANDA_CLOUD_PROVIDER} destroy --auto-approve
+```
