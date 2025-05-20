@@ -14,29 +14,61 @@
 - The [terraform inventory plugin](https://github.com/adammck/terraform-inventory)
 
 - aws-cli
+- gcloud
 
 ## Setup
 
-1. In the top level directory run `mvn clean package`. This will build the benchmark client needed during deployment.
+1.  In the top level directory run `mvn clean package`. This will build the benchmark client needed during deployment.
 
-2. Create an ssh key for the benchmark using the following: `ssh-keygen -f ~/.ssh/redpanda_aws`. Set the password to blank.
+2.  Create an environment variable for the cloud provider you're going to deploy on:
 
-3. In the `driver-redpanda/deploy` directory set an environment variable for your cloud provider and then run the terraform apply. 
+```bash
+        export REDPANDA_CLOUD_PROVIDER=<aws | gcp | azure>
+````
 
+3.  Create an ssh key for the benchmark by running the following:
+
+ ```bash
+        ssh-keygen -f ~/.ssh/redpanda_${REDPANDA_CLOUD_PROVIDER} 
 ```
-        export REDPANDA_CLOUD_PROVIDER=aws
+Set the password to blank when prompted.
+
+4.  Copy & edit `terraform.tfvars` for your specific needs around instance types & quantities:
+
+```bash
+        cp ${REDPANDA_CLOUD_PROVIDER}/terraform.tfvars.example ${REDPANDA_CLOUD_PROVIDER}/terraform.tfvars
 ```
 
-```
-	cp ${REDPANDA_CLOUD_PROVIDER}/terraform.tfvars.example ${REDPANDA_CLOUD_PROVIDER}/terraform.tfvars
+Hint:  if you're planning to benchmark against an existing Redpanda cluster, set the `num_instances` of `redpanda` to 0 in `terraform.tfvars`
+
+
+5.  In the `driver-redpanda/deploy` directory run terraform apply. 
+
+### AWS
+
+```bash
         terraform -chdir=${REDPANDA_CLOUD_PROVIDER} init
+        terraform -chdir=${REDPANDA_CLOUD_PROVIDER} plan
         aws sts get-caller-identity || aws sso login
         terraform -chdir=${REDPANDA_CLOUD_PROVIDER} apply --auto-approve
 ```
 
-4. To setup the deployed nodes. Run the ansible playbook.  If running locally include `--ask-become-pass` and supply your admin password when prompted.   If running on a cloud VM run the command as `sudo` instead.
+### GCP
 
+```bash
+        terraform -chdir=${REDPANDA_CLOUD_PROVIDER} init
+        terraform -chdir=${REDPANDA_CLOUD_PROVIDER} plan
+        gcloud auth print-access-token || gcloud auth login
+        terraform -chdir=${REDPANDA_CLOUD_PROVIDER} apply --auto-approve
 ```
+
+### Azure
+
+_coming soon_
+
+6.  To setup the deployed nodes, run the ansible playbook.  If running locally include `--ask-become-pass` and supply your admin password when prompted.   If running on a cloud VM run the command as `sudo` instead.
+
+```bash
         if [ "$(uname)" = "Darwin" ]; then export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES; fi
         if [ "$(uname)" = "Darwin" ]; then brew install gnu-tar; fi # https://github.com/prometheus-community/ansible/issues/186
         ansible-galaxy install -r requirements.yaml
@@ -44,9 +76,20 @@
         ansible-playbook --inventory ${REDPANDA_CLOUD_PROVIDER}/hosts.ini --ask-become-pass deploy.yaml
 ```
 
-To instead use an existing BYOC cluster, run the ansible playbook as follows.
+To instead use an existing Redpanda BYOC/Dedicated cluster, you'll need to add several things to the command:
 
+An extra variable to enable TLS (required by Redpanda cloud clusters), and then a SASL username & password for a user already created on your cluster.
+```bash
+        -e "tls_enabled=true sasl_enabled=true sasl_username=<YOUR SASL USER> sasl_password=<YOUR SASL PASSWORD>" \
 ```
+
+An extra variable to identify the bootstrap server address (e.g. `http://seed-abc123.redpanda.com:9092`)
+```bash
+        -e bootstrapServers="<YOUR BYOC KAFKA API ENDPOINT>" \
+```
+
+So the complete ansible-playbook command would look like this:
+```bash
         ansible-playbook --inventory  ${REDPANDA_CLOUD_PROVIDER}/hosts.ini \
         --ask-become-pass \
         -e "tls_enabled=true sasl_enabled=true sasl_username=<YOUR SASL USER> sasl_password=<YOUR SASL PASSWORD>" \
@@ -55,6 +98,7 @@ To instead use an existing BYOC cluster, run the ansible playbook as follows.
 ```
 
 ---
+
 
 ## Running the benchmark
 
@@ -68,8 +112,13 @@ To instead use an existing BYOC cluster, run the ansible playbook as follows.
 
 3. Run a benchmark using a specific driver and workload, for example: 
 
-        sudo bin/benchmark -d driver-redpanda/redpanda-ack-all-group-linger-10ms.yaml \
+         bin/benchmark -d driver-redpanda/redpanda-ack-all-group-linger-10ms.yaml \
             driver-redpanda/deploy/workloads/1-topic-100-partitions-1kb-4-producers-500k-rate.yaml
+
+While the benchmark is running, you can observe the cluster performance in Grafana, by navigating to:
+`http://<prometheus.ip.address:3000`
+
+The default username & password is admin/admin.
 
 ## Generating charts
 

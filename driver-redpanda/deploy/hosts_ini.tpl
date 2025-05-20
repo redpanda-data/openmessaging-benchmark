@@ -18,3 +18,4 @@ ${ ip } ansible_user=${ ssh_user } ansible_become=True private_ip=${prometheus_h
 
 [all:vars]
 instance_type=${instance_type}
+ansible_ssh_private_key_file=${private_key_path}
