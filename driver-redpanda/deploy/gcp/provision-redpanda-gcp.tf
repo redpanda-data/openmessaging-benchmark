@@ -117,7 +117,7 @@ resource "google_compute_firewall" "allow_redpanda" {
 
   allow {
     protocol = "tcp"
-    ports    = ["9092", "9644", "8081", "8082", "33145", "3000", "9090"] # Kafka API + Admin API + Prometheus/Grafana
+    ports    = ["9092", "9644", "8080", "8081", "8082", "33145", "3000", "9090"] # Kafka API + Admin API + Prometheus/Grafana
   }
 
   source_ranges = [var.subnet_cidr_range]
