@@ -469,7 +469,7 @@
     grafana_version: 9.5.14
     grafana_security:
       admin_user: admin
-      admin_password: "{{ grafana_admin_pass | default('enter_your_secure_password', true) }}"
+      admin_password: "{{ grafana_admin_pass | default('admin', true) }}"
     grafana_datasources:
     - name: prometheus
       type: prometheus

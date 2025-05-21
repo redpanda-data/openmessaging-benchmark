@@ -1,0 +1,22 @@
+public_key_path  = "~/.ssh/redpanda_gcp.pub"
+private_key_path = "~/.ssh/redpanda_gcp"
+
+ssh_user         = "ubuntu"
+region           = "us-central1"
+
+subnet_cidr_range      = "10.10.0.0/16"
+redpanda_disk_size_gb  = 750    # must be in 375GB increments
+
+instance_types = {
+  "redpanda"      = "n2d-standard-8"
+  "client"        = "n2-standard-16"
+  "monitor"       = "n2-standard-4"
+}
+
+# client instances may need to be larger than redpanda broker count
+# to provide enough message volume for testing
+num_instances = {
+  "client"     = 4
+  "redpanda"   = 3
+  "monitor"    = 1
+}

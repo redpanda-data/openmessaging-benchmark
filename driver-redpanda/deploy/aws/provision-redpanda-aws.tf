@@ -15,6 +15,11 @@ provider "aws" {
 provider "random" {
 }
 
+variable "private_key_path" {
+  description = "Path to the private SSH key used for Ansible"
+  type        = string
+}
+
 variable "public_key_path" {
   description = <<DESCRIPTION
 Path to the SSH public key to be used for authentication.
@@ -280,7 +285,8 @@ resource "local_file" "hosts_ini" {
       control_public_ips   = aws_instance.client.*.public_ip
       control_private_ips  = aws_instance.client.*.private_ip
       instance_type	   = var.instance_types["redpanda"]
-      ssh_user              = "ubuntu"
+      ssh_user             = "ubuntu"
+      private_key_path     = var.private_key_path
     }
   )
   filename = "${path.module}/hosts.ini"
