@@ -157,7 +157,7 @@ resource "local_file" "hosts_ini" {
       instance_type              = var.machine_type
     }
   )
-  filename = "${path.module}/hosts.ini"
+  filename = "${path.module}/../hosts.ini"
 }
 
 output "ip" {
