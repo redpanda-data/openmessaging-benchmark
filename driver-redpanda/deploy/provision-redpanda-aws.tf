@@ -269,7 +269,7 @@ output "client_ssh_host" {
 }
 
 resource "local_file" "hosts_ini" {
-  content = templatefile("${path.module}/../hosts_ini.tpl",
+  content = templatefile("${path.module}/hosts_ini.tpl",
     {
       redpanda_public_ips   = aws_instance.redpanda.*.public_ip
       redpanda_private_ips  = aws_instance.redpanda.*.private_ip
