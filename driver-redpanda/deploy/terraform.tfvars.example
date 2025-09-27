@@ -1,6 +1,13 @@
 public_key_path = "~/.ssh/redpanda_aws.pub"
 
-region          = "us-west-2"
+
+region            = "us-west-2"
+availability_zone = "us-west-2a"
+
+benchmark_vpc_cidr    = "10.0.0.0/16"
+benchmark_subnet_cidr = "10.0.0.0/24"
+
+
 # arm64 ubuntu focal
 machine_architecture = "arm64"
 
