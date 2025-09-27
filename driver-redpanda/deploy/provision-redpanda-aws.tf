@@ -36,6 +36,21 @@ variable "key_name" {
 
 variable "region" {}
 
+variable "availability_zone" {}
+
+variable "benchmark_vpc_cidr" {
+  description = "CIDR block for the benchmark VPC"
+  type        = string
+  default     = "10.0.0.0/16" # optional default
+}
+
+
+variable "benchmark_subnet_cidr" {
+  description = "CIDR block for the benchmark subnet"
+  type        = string
+  default     = "10.0.0.0/24" # optional default
+}
+
 #variable "ami" {}
 
 variable "profile" {
@@ -83,7 +98,7 @@ locals {
 
 # Create a VPC to launch our instances into
 resource "aws_vpc" "benchmark_vpc" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block = var.benchmark_vpc_cidr
 
   tags = {
     Name  = "RedPanda-Benchmark-VPC-${random_id.hash.hex}"
@@ -106,9 +121,9 @@ resource "aws_route" "internet_access" {
 # Create a subnet to launch our instances into
 resource "aws_subnet" "benchmark_subnet" {
   vpc_id                  = aws_vpc.benchmark_vpc.id
-  cidr_block              = "10.0.0.0/24"
+  cidr_block              = var.benchmark_subnet_cidr
   map_public_ip_on_launch = true
-  availability_zone       = "us-west-2a"
+  availability_zone       = var.availability_zone
 }
 
 # Get public IP of this machine
@@ -168,7 +183,7 @@ resource "aws_security_group" "benchmark_security_group" {
      from_port   = 8
      to_port     = 0
      protocol    = "icmp"
-     cidr_blocks = ["10.0.0.0/16"]
+     cidr_blocks = [var.benchmark_vpc_cidr]
    }
 
   # All ports open within the VPC
@@ -176,7 +191,7 @@ resource "aws_security_group" "benchmark_security_group" {
     from_port   = 0
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
+    cidr_blocks = [var.benchmark_vpc_cidr]
   }
 
   # All ports open to this machine
