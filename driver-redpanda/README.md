@@ -53,6 +53,8 @@
         sudo bin/benchmark -d driver-redpanda/redpanda-ack-all-group-linger-10ms.yaml \
             driver-redpanda/deploy/workloads/1-topic-100-partitions-1kb-4-producers-500k-rate.yaml
 
+   Note that compression codecs are available for snappy, gzip, lz4, and zstd
+
 ## Generating charts
 
 Once you have ran a benchmark, a json file will be generated in the data directory. You can use `bin/generate_charts.py` to generate a a visual representation of this data.
