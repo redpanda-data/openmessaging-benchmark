@@ -1,11 +1,14 @@
 public_key_path = "~/.ssh/redpanda_aws.pub"
 
-
 region            = "us-west-2"
 availability_zone = "us-west-2a"
 
 benchmark_vpc_cidr    = "10.0.0.0/16"
 benchmark_subnet_cidr = "10.0.0.0/24"
+
+# Optional VPC Peering to existing VPC
+byoc_vpc_id   = null  # example: "vpc-05c7835713d6a7641" //use null if no peering is required
+byoc_vpc_cidr = null  # example: "10.99.0.0/16"          //use null if no peering is required
 
 
 # arm64 ubuntu focal

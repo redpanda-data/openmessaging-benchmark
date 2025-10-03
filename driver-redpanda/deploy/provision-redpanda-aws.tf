@@ -44,12 +44,26 @@ variable "benchmark_vpc_cidr" {
   default     = "10.0.0.0/16" # optional default
 }
 
-
 variable "benchmark_subnet_cidr" {
   description = "CIDR block for the benchmark subnet"
   type        = string
   default     = "10.0.0.0/24" # optional default
 }
+
+
+variable "byoc_vpc_id" {
+  description = "Optional VPC id of your existing BYOC cluster.  If null, no peering will be created."
+  type        = string
+  default     = null
+}
+
+variable "byoc_vpc_cidr" {
+  description = "cidr range of the BYOC vpc.  If null, no peering will be created."
+  type        = string
+  default     = null
+}
+
+
 
 #variable "ami" {}
 
@@ -125,6 +139,61 @@ resource "aws_subnet" "benchmark_subnet" {
   map_public_ip_on_launch = true
   availability_zone       = var.availability_zone
 }
+
+
+# Optional VPC peering to an existing BYOC cluster
+
+data "aws_vpc" "byoc_vpc" {
+  count = var.byoc_vpc_id != null ? 1 : 0
+  id    = var.byoc_vpc_id
+}
+
+resource "aws_vpc_peering_connection" "benchmark_to_byoc" {
+  count       = var.byoc_vpc_id != null ? 1 : 0
+  vpc_id      = aws_vpc.benchmark_vpc.id
+  peer_vpc_id = var.byoc_vpc_id
+  auto_accept = false
+}
+
+resource "aws_vpc_peering_connection_accepter" "byoc_accept" {
+  count                     = var.byoc_vpc_id != null ? 1 : 0
+  vpc_peering_connection_id = aws_vpc_peering_connection.benchmark_to_byoc[0].id
+  auto_accept               = true
+}
+
+# ----------------------
+# Routes
+# ----------------------
+
+# Benchmark → BYOC (only 1 route table)
+resource "aws_route" "benchmark_to_byoc" {
+  count                     = var.byoc_vpc_id != null ? 1 : 0
+  route_table_id            = aws_vpc.benchmark_vpc.main_route_table_id
+  destination_cidr_block    = var.byoc_vpc_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.benchmark_to_byoc[0].id
+}
+
+# BYOC → Benchmark (loop across all BYOC route tables)
+data "aws_route_tables" "byoc" {
+  count  = var.byoc_vpc_id != null ? 1 : 0
+  vpc_id = var.byoc_vpc_id
+}
+
+resource "aws_route" "byoc_to_benchmark" {
+  for_each = var.byoc_vpc_id != null ? {
+    for id in data.aws_route_tables.byoc[0].ids : id => id
+  } : {}
+
+  route_table_id            = each.value
+  destination_cidr_block    = var.benchmark_vpc_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.benchmark_to_byoc[0].id
+}
+
+
+
+
+
+
 
 # Get public IP of this machine
 data "http" "myip" {
