@@ -186,16 +186,20 @@ public class Benchmark {
                         File driverConfigFile = new File(driverConfig);
                         DriverConfiguration driverConfiguration = tolerantMapper.readValue(driverConfigFile,
                                 DriverConfiguration.class);
-                        log.info("--------------- WORKLOAD : {} --- DRIVER : {}---------------", workload.name,
-                                driverConfiguration.name);
+
+                        log.info("Stopping any existing workloads");
 
                         // Stop any left over workload
                         worker.stopAll();
+
+                        log.info("Initializing driver");
 
                         worker.initializeDriver(new File(driverConfig));
 
                         WorkloadGenerator generator = new WorkloadGenerator(driverConfiguration.name, workload, worker);
 
+                        log.info("--------------- WORKLOAD : {} --- DRIVER : {}---------------", workload.name,
+                                driverConfiguration.name);
                         TestResult result = generator.run();
                         result.beginTime = beginTime;
                         result.endTime = dateFormat.format(new Date());

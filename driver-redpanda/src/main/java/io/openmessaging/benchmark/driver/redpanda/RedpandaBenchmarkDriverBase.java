@@ -62,6 +62,10 @@ public abstract class RedpandaBenchmarkDriverBase implements BenchmarkDriver {
 
     @Override
     public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
+
+        log.info("Initializing Redpanda Benchmark Driver with configuration file: {}",
+                configurationFile.getAbsolutePath());
+
         config = mapper.readValue(configurationFile, Config.class);
 
         Properties commonProperties = new Properties();
@@ -82,12 +86,15 @@ public abstract class RedpandaBenchmarkDriverBase implements BenchmarkDriver {
         topicProperties = new Properties();
         topicProperties.load(new StringReader(config.topicConfig));
 
+        log.info("Creating admin client");
         admin = AdminClient.create(commonProperties);
 
         if (config.reset) {
             // List existing topics
+            log.info("Listing existing topics");
             ListTopicsResult result = admin.listTopics();
             try {
+                log.info("Cluster has {} existing topics", result.names().get().size());
                 // Delete all existing topics matching the prefix
                 String topicPrefix = getTopicNamePrefix();
                 Set<String> topicsToDelete = result.names().get().stream()
@@ -95,18 +102,23 @@ public abstract class RedpandaBenchmarkDriverBase implements BenchmarkDriver {
                         .collect(Collectors.toSet());
 
                 if (topicsToDelete.size() > 0) {
+                    log.info("Deleting {} topics with prefix {}", topicsToDelete.size(), topicPrefix);
                     DeleteTopicsResult deletes = admin.deleteTopics(topicsToDelete);
                     deletes.all().get();
+                    log.info("Delete successful");
+                } else {
+                    log.info("No topics to delete with prefix {}", topicPrefix);
                 }
             } catch (ExecutionException e) {
                 if (e.getCause() instanceof UnknownTopicOrPartitionException
                         || e.getCause() instanceof UnknownTopicIdException) {
                     log.warn("Topic(s) appeared to be deleted already (race condition)");
                 } else {
+                    log.error("Could not delete previous topics", e);
                     throw new IOException("Could not delete previous topics", e);
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                log.error("Interrupted while deleting previous topics", e);
                 throw new IOException(e);
             }
         }
