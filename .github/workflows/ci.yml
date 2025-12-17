@@ -33,3 +33,8 @@ jobs:
         if: github.event_name == 'push'
         run: |
           aws s3 cp package-minimal/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz s3://vectorized-public/dependencies/omb/omb_minimal_${{ github.sha }}.tar.gz --acl public-read
+
+      - name: Upload to S3 bucket (dry-run)
+        if: github.event_name != 'push'
+        run: |
+          aws s3 cp package-minimal/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz s3://vectorized-public/dependencies/omb/omb_minimal_${{ github.sha }}.tar.gz --acl public-read --dryrun
