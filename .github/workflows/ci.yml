@@ -1,0 +1,35 @@
+name: OMB CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+jobs:
+  build_and_upload:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: ${{ vars.RP_AWS_CRED_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.RP_AWS_CRED_ACCOUNT_ID }}:role/${{ vars.RP_AWS_CRED_BASE_ROLE_NAME }}${{ github.event.repository.name }}
+
+      - uses: actions/checkout@v5
+
+      - name: Install java
+        run: sudo apt-get update && sudo apt-get install -y maven default-jdk
+
+      - name: Build binaries
+        run: mvn clean compile package -DskipTests
+
+      - name: Upload to S3 bucket
+        if: github.event_name == 'push'
+        run: |
+          aws s3 cp package-minimal/target/openmessaging-benchmark-0.0.1-SNAPSHOT-bin.tar.gz s3://vectorized-public/dependencies/omb/omb_minimal_${{ github.sha }}.tar.gz
