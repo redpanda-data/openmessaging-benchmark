@@ -50,7 +50,7 @@
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-clients</artifactId>
 			<!-- Note that the kafka-client version here should match the version in driver-kafka/pom.xml -->
-			<version>3.9.1</version>
+			<version>4.2.0</version>
 		        <exclusions>
 		          <exclusion>
 		            <groupId>org.lz4</groupId>
