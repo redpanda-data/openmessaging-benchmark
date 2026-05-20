@@ -1,0 +1,26 @@
+public_key_path = "~/.ssh/redpanda_gcp.pub"
+
+region            = "us-central1"
+availability_zone = ["us-central1-a"]
+
+# GCP VPC networks have no CIDR — only subnets do. No benchmark_vpc_cidr needed.
+benchmark_subnet_cidr = "10.0.0.0/24"
+
+# Optional network peering to existing Redpanda BYOC VPC
+# Note: GCP peering automatically exchanges subnet routes — no CIDR required unlike AWS
+byoc_vpc_name = null  # example: "redpanda-network-abcd1234"  //use null if no peering is required
+gcp_project   = null  # example: "my-byoc-gcp-project"        //use null if no peering is required
+
+instance_types = {
+  "redpanda"   = "n2d-standard-8"
+  "client"     = "n2d-standard-16"
+  "prometheus" = "n2d-standard-4"
+}
+
+# client instances may need to be larger than redpanda broker count
+# to provide enough message volume for testing
+num_instances = {
+  "redpanda"   = 3
+  "client"     = 4
+  "prometheus" = 1
+}
