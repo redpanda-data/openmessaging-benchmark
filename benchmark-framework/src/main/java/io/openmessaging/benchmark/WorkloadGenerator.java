@@ -391,6 +391,11 @@ public class WorkloadGenerator implements AutoCloseable {
 
         log.info("--- Start draining backlog ---");
 
+        if (workload.drainProducerRate >= 0) {
+            log.info("Throttling producers to {} msg/s for backlog drain", workload.drainProducerRate);
+            worker.adjustPublishRate(workload.drainProducerRate);
+        }
+
         worker.resumeConsumers();
 
         final long minBacklog = 1000;

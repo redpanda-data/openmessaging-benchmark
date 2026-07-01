@@ -67,6 +67,14 @@ public class Workload {
      */
     public long consumerBacklogSizeGB = 0;
 
+    /**
+     * Producer publish rate (msg/s) to apply during the backlog-drain phase.
+     * Default -1 means "unset" — producers keep producerRate through the drain
+     * (original behavior). >= 0 throttles producers for the drain only; 0 is
+     * floored to ~1 msg/s by Worker.adjustPublishRate (effectively stopped).
+     */
+    public int drainProducerRate = -1;
+
     public int warmupDurationMinutes = 30;
     public int sampleRateMillis = 10000;
     public int testDurationMinutes;
