@@ -54,6 +54,7 @@ import io.openmessaging.benchmark.driver.ConsumerCallback;
 import io.openmessaging.benchmark.utils.RandomGenerator;
 import io.openmessaging.benchmark.utils.Timer;
 import io.openmessaging.benchmark.utils.distributor.KeyDistributor;
+import io.openmessaging.benchmark.utils.distributor.PartitionChooser;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
@@ -213,8 +214,41 @@ public class LocalWorker implements Worker, ConsumerCallback {
             processorIdx = (processorIdx + 1) % processors;
         }
 
+        Map<BenchmarkProducer, PartitionChooser> partitionChoosers = buildPartitionChoosers(
+                producerWorkAssignment.partitionWeights);
+
         processorAssignment.values().forEach(producers -> submitProducersToExecutor(producers,
-                KeyDistributor.build(producerWorkAssignment.keyDistributorType), producerWorkAssignment.payloadData));
+                KeyDistributor.build(producerWorkAssignment.keyDistributorType), producerWorkAssignment.payloadData,
+                partitionChoosers));
+    }
+
+    private Map<BenchmarkProducer, PartitionChooser> buildPartitionChoosers(Map<String, Double> partitionWeights) {
+        Map<BenchmarkProducer, PartitionChooser> partitionChoosers = new HashMap<>();
+        if (partitionWeights == null || partitionWeights.isEmpty()) {
+            return partitionChoosers;
+        }
+        for (BenchmarkProducer producer : producers) {
+            int partitionCount = producer.partitionCount();
+            if (partitionCount < 0) {
+                throw new IllegalArgumentException("partitionWeights is set but the driver cannot target a partition");
+            }
+            if (!overridesPartitionedSend(producer)) {
+                throw new IllegalArgumentException(String.format(
+                    "%s implements partitionCount() but not sendAsync(key, partition, payload)",
+                    producer.getClass().getName()));
+            }
+            partitionChoosers.put(producer, new PartitionChooser(partitionWeights, partitionCount));
+        }
+        return partitionChoosers;
+    }
+
+    static boolean overridesPartitionedSend(BenchmarkProducer producer) {
+        try {
+            return producer.getClass().getMethod("sendAsync", Optional.class, int.class, byte[].class)
+                    .getDeclaringClass() != BenchmarkProducer.class;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Override
@@ -239,7 +273,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
         log.debug("probed {} producers", cnt);
     }
 
-    private void submitProducersToExecutor(List<BenchmarkProducer> producers, KeyDistributor keyDistributor, List<byte[]> payloads) {
+    private void submitProducersToExecutor(List<BenchmarkProducer> producers, KeyDistributor keyDistributor,
+            List<byte[]> payloads, Map<BenchmarkProducer, PartitionChooser> partitionChoosers) {
         executor.submit(() -> {
             int payloadCount = payloads.size();
             ThreadLocalRandom r = ThreadLocalRandom.current();
@@ -249,10 +284,14 @@ public class LocalWorker implements Worker, ConsumerCallback {
                 while (!testCompleted) {
                     producers.forEach(producer -> {
                         byte[] payloadData = payloadCount == 0 ? firstPayload : payloads.get(r.nextInt(payloadCount));
+                        PartitionChooser partitionChooser = partitionChoosers.get(producer);
                         final long intendedSendTime = rateLimiter.acquire();
                         uninterruptibleSleepNs(intendedSendTime);
                         final long sendTime = System.nanoTime();
-                        CompletableFuture<Void> f = producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData);
+                        Optional<String> key = Optional.ofNullable(keyDistributor.next());
+                        CompletableFuture<Void> f = partitionChooser == null
+                                ? producer.sendAsync(key, payloadData)
+                                : producer.sendAsync(key, partitionChooser.next(r), payloadData);
                         long scheduleMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
                         scheduleLatencyRecorder.recordValue(scheduleMicros);
                         cumulativeScheduleLatencyRecorder.recordValue(scheduleMicros);

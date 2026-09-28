@@ -29,4 +29,29 @@ public interface BenchmarkProducer extends AutoCloseable {
      */
     CompletableFuture<Void> sendAsync(Optional<String> key, byte[] payload);
 
+    /**
+     * Publish a message to a specific partition. Only called when {@link #partitionCount()} is non-negative, so
+     * drivers that override one must override both.
+     *
+     * @param key
+     *            the key associated with this message
+     * @param partition
+     *            the partition to publish to
+     * @param payload
+     *            the message payload
+     * @return a future that will be triggered when the message is successfully published
+     */
+    default CompletableFuture<Void> sendAsync(Optional<String> key, int partition, byte[] payload) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        future.completeExceptionally(new UnsupportedOperationException("this driver cannot target a partition"));
+        return future;
+    }
+
+    /**
+     * @return the partition count of this producer's topic, or -1 if the driver cannot target a partition
+     */
+    default int partitionCount() {
+        return -1;
+    }
+
 }

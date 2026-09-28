@@ -16,6 +16,7 @@ package io.openmessaging.benchmark.worker.commands;
 import io.openmessaging.benchmark.utils.distributor.KeyDistributorType;
 
 import java.util.List;
+import java.util.Map;
 
 public class ProducerWorkAssignment {
     
@@ -24,4 +25,6 @@ public class ProducerWorkAssignment {
     public double publishRate;
 
     public KeyDistributorType keyDistributorType;
+
+    public Map<String, Double> partitionWeights;
 }

@@ -37,17 +37,33 @@ public class KafkaBenchmarkProducer implements BenchmarkProducer {
 
     @Override
     public CompletableFuture<Void> sendAsync(Optional<String> key, byte[] payload) {
-        ProducerRecord<String, byte[]> record = new ProducerRecord<>(topic, key.orElse(null), payload);
+        return send(new ProducerRecord<>(topic, key.orElse(null), payload));
+    }
 
+    @Override
+    public CompletableFuture<Void> sendAsync(Optional<String> key, int partition, byte[] payload) {
+        return send(new ProducerRecord<>(topic, partition, key.orElse(null), payload));
+    }
+
+    @Override
+    public int partitionCount() {
+        return producer.partitionsFor(topic).size();
+    }
+
+    private CompletableFuture<Void> send(ProducerRecord<String, byte[]> record) {
         CompletableFuture<Void> future = new CompletableFuture<>();
 
-        producer.send(record, (metadata, exception) -> {
-            if (exception != null) {
-                future.completeExceptionally(exception);
-            } else {
-                future.complete(null);
-            }
-        });
+        try {
+            producer.send(record, (metadata, exception) -> {
+                if (exception != null) {
+                    future.completeExceptionally(exception);
+                } else {
+                    future.complete(null);
+                }
+            });
+        } catch (Exception e) {
+            future.completeExceptionally(e);
+        }
 
         return future;
     }
