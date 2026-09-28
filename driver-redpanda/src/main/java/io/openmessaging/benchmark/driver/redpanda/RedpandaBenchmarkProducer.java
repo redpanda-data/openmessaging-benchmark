@@ -33,8 +33,20 @@ public class RedpandaBenchmarkProducer implements BenchmarkProducer {
 
     @Override
     public CompletableFuture<Void> sendAsync(Optional<String> key, byte[] payload) {
-        ProducerRecord<String, byte[]> record = new ProducerRecord<>(topic, key.orElse(null), payload);
+        return send(new ProducerRecord<>(topic, key.orElse(null), payload));
+    }
 
+    @Override
+    public CompletableFuture<Void> sendAsync(Optional<String> key, int partition, byte[] payload) {
+        return send(new ProducerRecord<>(topic, partition, key.orElse(null), payload));
+    }
+
+    @Override
+    public int partitionCount() {
+        return producer.partitionsFor(topic).size();
+    }
+
+    private CompletableFuture<Void> send(ProducerRecord<String, byte[]> record) {
         CompletableFuture<Void> future = new CompletableFuture<>();
 
         try {

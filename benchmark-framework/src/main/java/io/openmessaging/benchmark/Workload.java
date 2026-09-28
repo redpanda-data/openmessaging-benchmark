@@ -15,8 +15,10 @@ package io.openmessaging.benchmark;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import io.openmessaging.benchmark.utils.distributor.KeyDistributorType;
+import io.openmessaging.benchmark.utils.distributor.PartitionChooser;
 
 public class Workload {
     public String name;
@@ -41,6 +43,14 @@ public class Workload {
     public int partitionsPerTopic;
 
     public KeyDistributorType keyDistributor = KeyDistributorType.NO_KEY;
+
+    /**
+     * Optional per-partition traffic shares, e.g. {"3": 0.91, "*": 0.09}: listed partitions get their share and "*"
+     * is spread evenly over the unlisted ones. Shares are relative. The producer picks the partition, so the driver
+     * must support partition targeting and keys no longer decide the partition. Empty (the default) leaves
+     * partitioning to the client.
+     */
+    public Map<String, Double> partitionWeights = Collections.emptyMap();
 
     public int messageSize;
 
@@ -126,6 +136,16 @@ public class Workload {
 
         if (existingTopicList.isEmpty() && (existingConsumeTopicList.isEmpty() != existingProduceTopicList.isEmpty())) {
             throw new RuntimeException("The workload must specify a non-empty existingTopicList");
+        }
+
+        if (partitionWeights == null) {
+            partitionWeights = Collections.emptyMap();
+        }
+        PartitionChooser.checkWeights(partitionWeights);
+        if (!partitionWeights.isEmpty() && !usingExistingTopics) {
+            // Created topics have partitionsPerTopic partitions, so the full check can run before anything starts;
+            // for existing topics the count is only known on the worker.
+            new PartitionChooser(partitionWeights, partitionsPerTopic);
         }
     }
 
