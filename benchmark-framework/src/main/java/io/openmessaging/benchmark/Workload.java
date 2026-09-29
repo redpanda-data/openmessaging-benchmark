@@ -14,6 +14,7 @@
 package io.openmessaging.benchmark;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -61,6 +62,15 @@ public class Workload {
     public String payloadFile;
 
     public int subscriptionsPerTopic;
+
+    /**
+     * Optional consumer group name for each subscription, by index. When set, it must have
+     * subscriptionsPerTopic entries, and subscription i uses subscriptionNames[i] on every topic,
+     * so instances sharing a name form one group across their topics. Empty (the default) keeps
+     * the generated sub-NNN-random names. Named groups keep their committed offsets across runs,
+     * so a rerun against the same topics resumes where the previous run stopped.
+     */
+    public List<String> subscriptionNames = Collections.emptyList();
 
     public int producersPerTopic;
 
@@ -146,6 +156,22 @@ public class Workload {
             // Created topics have partitionsPerTopic partitions, so the full check can run before anything starts;
             // for existing topics the count is only known on the worker.
             new PartitionChooser(partitionWeights, partitionsPerTopic);
+        }
+
+        if (!subscriptionNames.isEmpty()) {
+            if (subscriptionNames.size() != subscriptionsPerTopic) {
+                throw new IllegalArgumentException(String.format(
+                    "subscriptionNames has %d entries but subscriptionsPerTopic is %d",
+                    subscriptionNames.size(), subscriptionsPerTopic));
+            }
+            if (new HashSet<>(subscriptionNames).size() != subscriptionNames.size()) {
+                throw new IllegalArgumentException("subscriptionNames must not contain duplicate names");
+            }
+            for (String subscriptionName : subscriptionNames) {
+                if (subscriptionName == null || subscriptionName.trim().isEmpty()) {
+                    throw new IllegalArgumentException("subscriptionNames must not contain blank names");
+                }
+            }
         }
     }
 
