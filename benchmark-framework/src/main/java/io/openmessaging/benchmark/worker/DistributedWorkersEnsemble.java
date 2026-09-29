@@ -27,7 +27,6 @@ import io.openmessaging.benchmark.worker.commands.*;
 import org.HdrHistogram.Histogram;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.pulsar.common.util.FutureUtil;
 import org.asynchttpclient.AsyncHttpClient;
 import org.asynchttpclient.Response;
 import org.slf4j.Logger;
@@ -139,7 +138,7 @@ public class DistributedWorkersEnsemble implements Worker {
             }
         }).collect(toList());
 
-        FutureUtil.waitForAll(futures).join();
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
     @Override
@@ -201,7 +200,7 @@ public class DistributedWorkersEnsemble implements Worker {
             }
         }).collect(toList());
 
-        FutureUtil.waitForAll(futures).join();
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
     @Override
@@ -316,7 +315,7 @@ public class DistributedWorkersEnsemble implements Worker {
         List<CompletableFuture<T>> futures = hosts.stream().map(w -> get(w, path, clazz)).collect(toList());
 
         CompletableFuture<List<T>> resultFuture = new CompletableFuture<>();
-        FutureUtil.waitForAll(futures).thenRun(() -> {
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
             resultFuture.complete(futures.stream().map(CompletableFuture::join).collect(toList()));
         }).exceptionally(ex -> {
             resultFuture.completeExceptionally(ex);

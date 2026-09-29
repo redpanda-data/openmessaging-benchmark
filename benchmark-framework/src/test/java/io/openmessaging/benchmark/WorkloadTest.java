@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import java.util.Arrays;
 import org.junit.Test;
 
 public class WorkloadTest {
@@ -37,6 +38,13 @@ public class WorkloadTest {
     public void partitionWeightsDefaultToEmpty() throws Exception {
         Workload w = MAPPER.readValue(BASE, Workload.class);
         assertTrue(w.partitionWeights.isEmpty());
+        w.validate();
+    }
+
+    @Test
+    public void subscriptionNamesDefaultToEmpty() throws Exception {
+        Workload w = MAPPER.readValue(BASE + "subscriptionsPerTopic: 2\n", Workload.class);
+        assertTrue(w.subscriptionNames.isEmpty());
         w.validate();
     }
 
@@ -85,5 +93,31 @@ public class WorkloadTest {
     @Test
     public void allZeroSharesFailValidation() throws Exception {
         assertValidationFails(BASE + "partitionWeights: {\"*\": 0.0}\n", "gives no traffic");
+    }
+
+    @Test
+    public void subscriptionNamesMatchingSubscriptionCountValidate() throws Exception {
+        Workload w = MAPPER.readValue(
+                BASE + "subscriptionsPerTopic: 2\nsubscriptionNames: [billing, search]\n", Workload.class);
+        assertEquals(Arrays.asList("billing", "search"), w.subscriptionNames);
+        w.validate();
+    }
+
+    @Test
+    public void subscriptionNamesCountMismatchFailsValidation() throws Exception {
+        assertValidationFails(BASE + "subscriptionsPerTopic: 2\nsubscriptionNames: [billing]\n",
+                "subscriptionNames has 1 entries but subscriptionsPerTopic is 2");
+    }
+
+    @Test
+    public void duplicateSubscriptionNamesFailValidation() throws Exception {
+        assertValidationFails(BASE + "subscriptionsPerTopic: 2\nsubscriptionNames: [billing, billing]\n",
+                "must not contain duplicate names");
+    }
+
+    @Test
+    public void blankSubscriptionNameFailsValidation() throws Exception {
+        assertValidationFails(BASE + "subscriptionsPerTopic: 1\nsubscriptionNames: [\" \"]\n",
+                "must not contain blank names");
     }
 }
