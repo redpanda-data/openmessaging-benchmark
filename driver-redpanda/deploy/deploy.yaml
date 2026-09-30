@@ -177,29 +177,29 @@
   hosts: redpanda
   tasks:
     - set_fact:
-        setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.deb.sh
+        setup_repo: https://linux.pkg.redpanda.com/setup-redpanda.deb.sh
       when:
         - channel | default('stable') == 'stable'
         -  ansible_os_family == 'Debian'
     - set_fact:
-        setup_repo: https://packages.vectorized.io/nzc4ZYQK3WRGd9sy/redpanda/cfg/setup/bash.rpm.sh
+        setup_repo: https://linux.pkg.redpanda.com/setup-redpanda.rpm.sh
       when:
         - channel | default('stable') == 'stable'
         -  ansible_os_family == 'RedHat'
     - set_fact:
-        setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.deb.sh
+        setup_repo: https://linux.pkg.redpanda.com/setup-redpanda-unstable.deb.sh
       when:
         - channel | default('stable') == 'unstable'
         -  ansible_os_family == 'Debian'
     - set_fact:
-        setup_repo: https://packages.vectorized.io/E4xN1tVe3Xy60GTx/redpanda-unstable/setup.rpm.sh
+        setup_repo: https://linux.pkg.redpanda.com/setup-redpanda-unstable.rpm.sh
       when:
         - channel | default('stable') == 'unstable'
         -  ansible_os_family == 'RedHat'
 
     - name: add the redpanda repo
       shell: |
-        curl -1sLf {{ setup_repo }} | sudo -E bash
+        curl -fsSL --tlsv1.2 {{ setup_repo }} | sudo bash
     - name: install redpanda
       package:
         name:
