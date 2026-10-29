@@ -66,9 +66,12 @@ public class Workload {
     /**
      * Optional consumer group name for each subscription, by index. When set, it must have
      * subscriptionsPerTopic entries, and subscription i uses subscriptionNames[i] on every topic,
-     * so instances sharing a name form one group across their topics. Empty (the default) keeps
-     * the generated sub-NNN-random names. Named groups keep their committed offsets across runs,
-     * so a rerun against the same topics resumes where the previous run stopped.
+     * so instances sharing a name form one group across their topics. Each named consumer
+     * subscribes to all of the workload's consume topics at once, so a group has
+     * consumerPerSubscription members in total, not per topic (Redpanda driver only). Empty (the
+     * default) keeps the generated sub-NNN-random names and one topic per consumer. Named groups
+     * keep their committed offsets across runs, so a rerun against the same topics resumes where
+     * the previous run stopped.
      */
     public List<String> subscriptionNames = Collections.emptyList();
 
@@ -106,6 +109,14 @@ public class Workload {
     public boolean isUsingExistingTopics() {
         return !existingTopicList.isEmpty() || !existingConsumeTopicList.isEmpty() || !existingProduceTopicList.isEmpty();
     }
+    /**
+     * Topics as consumers subscribe to them: one entry per topic, or with subscriptionNames a
+     * single comma-joined entry (Kafka topic names cannot contain a comma) that the driver splits.
+     */
+    public List<String> consumerTopics(List<String> topics) {
+        return subscriptionNames.isEmpty() ? topics : Collections.singletonList(String.join(",", topics));
+    }
+
     /**
      * Return the total number of consumers defined in the workload.
      */

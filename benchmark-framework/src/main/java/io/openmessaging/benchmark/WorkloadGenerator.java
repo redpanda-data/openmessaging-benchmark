@@ -332,7 +332,7 @@ public class WorkloadGenerator implements AutoCloseable {
     private void createConsumers(List<String> topics) throws IOException {
         ConsumerAssignment consumerAssignment = new ConsumerAssignment();
 
-        for(String topic: topics){
+        for(String topic: workload.consumerTopics(topics)){
             for(int i = 0; i < workload.subscriptionsPerTopic; i++){
                 String subscriptionName = workload.subscriptionNames.isEmpty()
                         ? String.format("sub-%03d-%s", i, RandomGenerator.getRandomString())

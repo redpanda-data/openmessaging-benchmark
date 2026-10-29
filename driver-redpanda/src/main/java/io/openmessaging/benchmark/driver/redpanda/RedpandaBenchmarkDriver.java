@@ -77,8 +77,8 @@ public class RedpandaBenchmarkDriver extends RedpandaBenchmarkDriverBase {
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscriptionName);
         KafkaConsumer<String, byte[]> kafkaConsumer = new KafkaConsumer<>(properties);
         try {
-            // Subscribe
-            kafkaConsumer.subscribe(Arrays.asList(topic));
+            // Subscribe; a comma-joined list comes from Workload.consumerTopics.
+            kafkaConsumer.subscribe(Arrays.asList(topic.split(",")));
 
             // Start polling
             BenchmarkConsumer benchmarkConsumer = new RedpandaBenchmarkConsumer(kafkaConsumer, consumerProperties,

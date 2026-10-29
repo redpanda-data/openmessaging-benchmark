@@ -49,6 +49,14 @@ public class WorkloadTest {
     }
 
     @Test
+    public void namedGroupsJoinConsumerTopics() throws Exception {
+        Workload w = MAPPER.readValue(BASE, Workload.class);
+        assertEquals(Arrays.asList("a", "b"), w.consumerTopics(Arrays.asList("a", "b")));
+        w = MAPPER.readValue(BASE + "subscriptionsPerTopic: 1\nsubscriptionNames: [billing]\n", Workload.class);
+        assertEquals(Arrays.asList("a,b"), w.consumerTopics(Arrays.asList("a", "b")));
+    }
+
+    @Test
     public void partitionWeightsParseIntAndStarKeys() throws Exception {
         Workload w = MAPPER.readValue(BASE.replace("partitionsPerTopic: 1", "partitionsPerTopic: 8")
                 + "partitionWeights: {3: 0.91, \"*\": 0.09}\n", Workload.class);
