@@ -27,8 +27,19 @@ public class PartitionChooser {
 
     private final double[] cumulativeShares;
 
+    private final int stickyRecords;
+
+    private int current;
+
+    private int remaining;
+
     public PartitionChooser(Map<String, Double> weights, int partitionCount) {
+        this(weights, partitionCount, 1);
+    }
+
+    public PartitionChooser(Map<String, Double> weights, int partitionCount, int stickyRecords) {
         checkWeights(weights);
+        this.stickyRecords = stickyRecords;
 
         double[] shares = new double[partitionCount];
         boolean[] listed = new boolean[partitionCount];
@@ -71,6 +82,16 @@ public class PartitionChooser {
      * @return a partition drawn according to the configured shares
      */
     public int next(Random random) {
+        if (remaining > 0) {
+            remaining--;
+            return current;
+        }
+        current = draw(random);
+        remaining = stickyRecords - 1;
+        return current;
+    }
+
+    private int draw(Random random) {
         double draw = random.nextDouble() * cumulativeShares[cumulativeShares.length - 1];
         int low = 0;
         int high = cumulativeShares.length - 1;

@@ -35,6 +35,19 @@ public class WorkloadTest {
     }
 
     @Test
+    public void partitionStickyRecordsDefaultsToOneAndParses() throws Exception {
+        assertEquals(1, MAPPER.readValue(BASE, Workload.class).partitionStickyRecords);
+        Workload w = MAPPER.readValue(BASE + "partitionStickyRecords: 4\n", Workload.class);
+        assertEquals(4, w.partitionStickyRecords);
+        w.validate();
+    }
+
+    @Test
+    public void partitionStickyRecordsBelowOneFails() throws Exception {
+        assertValidationFails(BASE + "partitionStickyRecords: 0\n", "partitionStickyRecords must be at least 1");
+    }
+
+    @Test
     public void partitionWeightsDefaultToEmpty() throws Exception {
         Workload w = MAPPER.readValue(BASE, Workload.class);
         assertTrue(w.partitionWeights.isEmpty());
