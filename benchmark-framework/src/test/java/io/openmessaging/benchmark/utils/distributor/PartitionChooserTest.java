@@ -89,4 +89,19 @@ public class PartitionChooserTest {
     public void negativeShareFails() {
         assertFails(() -> PartitionChooser.checkWeights(weights("0", -0.5)), "must be a non-negative number");
     }
+
+    @Test
+    public void stickyRecordsRepeatEachDrawAndKeepShares() {
+        PartitionChooser chooser = new PartitionChooser(weights("3", 0.91, "*", 0.09), 8, 4);
+        Random random = new Random(42);
+        int[] counts = new int[8];
+        for (int run = 0; run < DRAWS / 4; run++) {
+            int first = chooser.next(random);
+            for (int i = 1; i < 4; i++) {
+                assertEquals(first, chooser.next(random));
+            }
+            counts[first] += 4;
+        }
+        assertEquals(0.91, counts[3] / (double) DRAWS, 0.01);
+    }
 }

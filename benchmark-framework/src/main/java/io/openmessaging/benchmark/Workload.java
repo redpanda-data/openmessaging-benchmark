@@ -53,6 +53,13 @@ public class Workload {
      */
     public Map<String, Double> partitionWeights = Collections.emptyMap();
 
+    /**
+     * With partitionWeights, how many consecutive records a producer sends to one drawn partition before it draws
+     * again. 1 (the default) draws per record, which leaves the client nothing to batch. A replay sets it to the
+     * observed records per batch so the broker sees the same batches. The shares still hold over many draws.
+     */
+    public int partitionStickyRecords = 1;
+
     public int messageSize;
 
     public boolean useRandomizedPayloads;
@@ -163,6 +170,10 @@ public class Workload {
             partitionWeights = Collections.emptyMap();
         }
         PartitionChooser.checkWeights(partitionWeights);
+        if (partitionStickyRecords < 1) {
+            throw new IllegalArgumentException(
+                "partitionStickyRecords must be at least 1, got " + partitionStickyRecords);
+        }
         if (!partitionWeights.isEmpty() && !usingExistingTopics) {
             // Created topics have partitionsPerTopic partitions, so the full check can run before anything starts;
             // for existing topics the count is only known on the worker.

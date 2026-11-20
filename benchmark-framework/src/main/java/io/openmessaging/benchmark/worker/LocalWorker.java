@@ -215,14 +215,15 @@ public class LocalWorker implements Worker, ConsumerCallback {
         }
 
         Map<BenchmarkProducer, PartitionChooser> partitionChoosers = buildPartitionChoosers(
-                producerWorkAssignment.partitionWeights);
+                producerWorkAssignment.partitionWeights, producerWorkAssignment.partitionStickyRecords);
 
         processorAssignment.values().forEach(producers -> submitProducersToExecutor(producers,
                 KeyDistributor.build(producerWorkAssignment.keyDistributorType), producerWorkAssignment.payloadData,
                 partitionChoosers));
     }
 
-    private Map<BenchmarkProducer, PartitionChooser> buildPartitionChoosers(Map<String, Double> partitionWeights) {
+    private Map<BenchmarkProducer, PartitionChooser> buildPartitionChoosers(Map<String, Double> partitionWeights,
+            int stickyRecords) {
         Map<BenchmarkProducer, PartitionChooser> partitionChoosers = new HashMap<>();
         if (partitionWeights == null || partitionWeights.isEmpty()) {
             return partitionChoosers;
@@ -237,7 +238,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
                     "%s implements partitionCount() but not sendAsync(key, partition, payload)",
                     producer.getClass().getName()));
             }
-            partitionChoosers.put(producer, new PartitionChooser(partitionWeights, partitionCount));
+            partitionChoosers.put(producer, new PartitionChooser(partitionWeights, partitionCount, stickyRecords));
         }
         return partitionChoosers;
     }
