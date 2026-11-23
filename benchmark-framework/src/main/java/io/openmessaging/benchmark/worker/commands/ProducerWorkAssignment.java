@@ -27,4 +27,6 @@ public class ProducerWorkAssignment {
     public KeyDistributorType keyDistributorType;
 
     public Map<String, Double> partitionWeights;
+
+    public double partitionStickyRecords = 1;
 }

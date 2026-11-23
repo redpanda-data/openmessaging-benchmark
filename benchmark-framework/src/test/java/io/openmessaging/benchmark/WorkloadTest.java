@@ -35,6 +35,29 @@ public class WorkloadTest {
     }
 
     @Test
+    public void partitionStickyRecordsDefaultsToOneAndParses() throws Exception {
+        assertEquals(1, MAPPER.readValue(BASE, Workload.class).partitionStickyRecords, 0);
+        Workload w = MAPPER.readValue(BASE + "partitionStickyRecords: 4.3\n", Workload.class);
+        assertEquals(4.3, w.partitionStickyRecords, 0);
+        w.validate();
+    }
+
+    @Test
+    public void partitionStickyRecordsBelowOneFails() throws Exception {
+        assertValidationFails(BASE + "partitionStickyRecords: 0\n", "partitionStickyRecords must be at least 1");
+    }
+
+    @Test
+    public void partitionStickyRecordsNaNOrInfinityFails() throws Exception {
+        for (double bad : new double[] {Double.NaN, Double.POSITIVE_INFINITY}) {
+            Workload w = MAPPER.readValue(BASE, Workload.class);
+            w.partitionStickyRecords = bad;
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class, w::validate);
+            assertTrue(e.getMessage(), e.getMessage().contains("partitionStickyRecords must be at least 1 and finite"));
+        }
+    }
+
+    @Test
     public void partitionWeightsDefaultToEmpty() throws Exception {
         Workload w = MAPPER.readValue(BASE, Workload.class);
         assertTrue(w.partitionWeights.isEmpty());

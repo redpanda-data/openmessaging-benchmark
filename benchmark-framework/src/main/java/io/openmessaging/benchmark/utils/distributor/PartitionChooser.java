@@ -27,8 +27,17 @@ public class PartitionChooser {
 
     private final double[] cumulativeShares;
 
+    private final double stickyRecords;
+
+    private double carry;
+
     public PartitionChooser(Map<String, Double> weights, int partitionCount) {
+        this(weights, partitionCount, 1);
+    }
+
+    public PartitionChooser(Map<String, Double> weights, int partitionCount, double stickyRecords) {
         checkWeights(weights);
+        this.stickyRecords = stickyRecords;
 
         double[] shares = new double[partitionCount];
         boolean[] listed = new boolean[partitionCount];
@@ -83,6 +92,17 @@ public class PartitionChooser {
             }
         }
         return low;
+    }
+
+    /**
+     * @return how many records the partition from the last next() gets in a row: floor or ceil of the sticky
+     *         count, mixed so the mean is the sticky count. Call once after each next().
+     */
+    public int runLength() {
+        carry += stickyRecords;
+        int length = (int) carry;
+        carry -= length;
+        return length;
     }
 
     /**

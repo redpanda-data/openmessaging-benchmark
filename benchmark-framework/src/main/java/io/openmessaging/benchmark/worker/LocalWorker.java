@@ -215,29 +215,34 @@ public class LocalWorker implements Worker, ConsumerCallback {
         }
 
         Map<BenchmarkProducer, PartitionChooser> partitionChoosers = buildPartitionChoosers(
-                producerWorkAssignment.partitionWeights);
+                producerWorkAssignment.partitionWeights, producerWorkAssignment.partitionStickyRecords);
 
         processorAssignment.values().forEach(producers -> submitProducersToExecutor(producers,
                 KeyDistributor.build(producerWorkAssignment.keyDistributorType), producerWorkAssignment.payloadData,
                 partitionChoosers));
     }
 
-    private Map<BenchmarkProducer, PartitionChooser> buildPartitionChoosers(Map<String, Double> partitionWeights) {
+    private Map<BenchmarkProducer, PartitionChooser> buildPartitionChoosers(Map<String, Double> partitionWeights,
+            double stickyRecords) {
         Map<BenchmarkProducer, PartitionChooser> partitionChoosers = new HashMap<>();
         if (partitionWeights == null || partitionWeights.isEmpty()) {
-            return partitionChoosers;
+            if (stickyRecords <= 1) {
+                return partitionChoosers;
+            }
+            partitionWeights = Collections.singletonMap(PartitionChooser.OTHER_PARTITIONS, 1.0);
         }
         for (BenchmarkProducer producer : producers) {
             int partitionCount = producer.partitionCount();
             if (partitionCount < 0) {
-                throw new IllegalArgumentException("partitionWeights is set but the driver cannot target a partition");
+                throw new IllegalArgumentException(
+                    "partitionWeights or partitionStickyRecords is set but the driver cannot target a partition");
             }
             if (!overridesPartitionedSend(producer)) {
                 throw new IllegalArgumentException(String.format(
                     "%s implements partitionCount() but not sendAsync(key, partition, payload)",
                     producer.getClass().getName()));
             }
-            partitionChoosers.put(producer, new PartitionChooser(partitionWeights, partitionCount));
+            partitionChoosers.put(producer, new PartitionChooser(partitionWeights, partitionCount, stickyRecords));
         }
         return partitionChoosers;
     }
@@ -283,41 +288,53 @@ public class LocalWorker implements Worker, ConsumerCallback {
             try {
                 while (!testCompleted) {
                     producers.forEach(producer -> {
-                        byte[] payloadData = payloadCount == 0 ? firstPayload : payloads.get(r.nextInt(payloadCount));
                         PartitionChooser partitionChooser = partitionChoosers.get(producer);
+                        // A run of records goes to one partition back to back so the client can batch it: one
+                        // rate-limiter permit per record keeps the aggregate rate, one sleep per run. Publish delay
+                        // is measured from the run's slot, since records after the first go out early on purpose.
+                        int partition = partitionChooser == null ? -1 : partitionChooser.next(r);
+                        int run = partitionChooser == null ? 1 : partitionChooser.runLength();
                         final long intendedSendTime = rateLimiter.acquire();
                         uninterruptibleSleepNs(intendedSendTime);
-                        final long sendTime = System.nanoTime();
-                        Optional<String> key = Optional.ofNullable(keyDistributor.next());
-                        CompletableFuture<Void> f = partitionChooser == null
-                                ? producer.sendAsync(key, payloadData)
-                                : producer.sendAsync(key, partitionChooser.next(r), payloadData);
-                        long scheduleMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
-                        scheduleLatencyRecorder.recordValue(scheduleMicros);
-                        cumulativeScheduleLatencyRecorder.recordValue(scheduleMicros);
-                        scheduleLatencyStats.registerSuccessfulEvent(scheduleMicros, TimeUnit.MICROSECONDS);
-                        f.thenRun(() -> {
-                            messagesSent.increment();
-                            totalMessagesSent.increment();
-                            messagesSentCounter.inc();
-                            bytesSent.add(payloadData.length);
-                            bytesSentCounter.add(payloadData.length);
+                        for (int i = 0; i < run; i++) {
+                            if (i > 0) {
+                                rateLimiter.acquire();
+                            }
+                            byte[] payloadData =
+                                    payloadCount == 0 ? firstPayload : payloads.get(r.nextInt(payloadCount));
+                            final long sendTime = System.nanoTime();
+                            Optional<String> key = Optional.ofNullable(keyDistributor.next());
+                            CompletableFuture<Void> f = partitionChooser == null
+                                    ? producer.sendAsync(key, payloadData)
+                                    : producer.sendAsync(key, partition, payloadData);
+                            long scheduleMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
+                            scheduleLatencyRecorder.recordValue(scheduleMicros);
+                            cumulativeScheduleLatencyRecorder.recordValue(scheduleMicros);
+                            scheduleLatencyStats.registerSuccessfulEvent(scheduleMicros, TimeUnit.MICROSECONDS);
+                            f.thenRun(() -> {
+                                messagesSent.increment();
+                                totalMessagesSent.increment();
+                                messagesSentCounter.inc();
+                                bytesSent.add(payloadData.length);
+                                bytesSentCounter.add(payloadData.length);
 
-                            long latencyMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
-                            publishLatencyRecorder.recordValue(latencyMicros);
-                            cumulativePublishLatencyRecorder.recordValue(latencyMicros);
-                            publishLatencyStats.registerSuccessfulEvent(latencyMicros, TimeUnit.MICROSECONDS);
+                                long latencyMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
+                                publishLatencyRecorder.recordValue(latencyMicros);
+                                cumulativePublishLatencyRecorder.recordValue(latencyMicros);
+                                publishLatencyStats.registerSuccessfulEvent(latencyMicros, TimeUnit.MICROSECONDS);
 
-                            final long sendDelayMicros = TimeUnit.NANOSECONDS.toMicros(sendTime - intendedSendTime);
-                            publishDelayLatencyRecorder.recordValue(sendDelayMicros);
-                            cumulativePublishDelayLatencyRecorder.recordValue(sendDelayMicros);
-                            publishDelayLatencyStats.registerSuccessfulEvent(sendDelayMicros, TimeUnit.MICROSECONDS);
-                        }).exceptionally(ex -> {
-                            errors.increment();
-                            totalErrors.increment();
-                            log.warn("Write error on message", ex);
-                            return null;
-                        });
+                                final long sendDelayMicros = TimeUnit.NANOSECONDS.toMicros(sendTime - intendedSendTime);
+                                publishDelayLatencyRecorder.recordValue(sendDelayMicros);
+                                cumulativePublishDelayLatencyRecorder.recordValue(sendDelayMicros);
+                                publishDelayLatencyStats.registerSuccessfulEvent(sendDelayMicros,
+                                        TimeUnit.MICROSECONDS);
+                            }).exceptionally(ex -> {
+                                errors.increment();
+                                totalErrors.increment();
+                                log.warn("Write error on message", ex);
+                                return null;
+                            });
+                        }
                     });
                 }
             } catch (Throwable t) {

@@ -53,6 +53,17 @@ public class Workload {
      */
     public Map<String, Double> partitionWeights = Collections.emptyMap();
 
+    /**
+     * How many consecutive records a producer sends back to back to one drawn partition before it draws again. A
+     * replay sets it to the observed records per batch so the broker sees the same batches. It is an upper bound
+     * on records per batch, reached with linger.ms >= 1 and a batch.size of at least that many records. Decimals
+     * mix floor and ceil runs so the mean holds, e.g. 4.3. Above 1 without partitionWeights, partitions are drawn
+     * with equal shares, so, as with partitionWeights, the driver must support partition targeting and keys no
+     * longer decide the partition. 1 (the default) sends one record per turn and leaves partitioning to the client
+     * unless partitionWeights is set.
+     */
+    public double partitionStickyRecords = 1;
+
     public int messageSize;
 
     public boolean useRandomizedPayloads;
@@ -163,6 +174,11 @@ public class Workload {
             partitionWeights = Collections.emptyMap();
         }
         PartitionChooser.checkWeights(partitionWeights);
+        // !(x >= 1) also rejects NaN, which every comparison treats as false.
+        if (!(partitionStickyRecords >= 1) || Double.isInfinite(partitionStickyRecords)) {
+            throw new IllegalArgumentException(
+                "partitionStickyRecords must be at least 1 and finite, got " + partitionStickyRecords);
+        }
         if (!partitionWeights.isEmpty() && !usingExistingTopics) {
             // Created topics have partitionsPerTopic partitions, so the full check can run before anything starts;
             // for existing topics the count is only known on the worker.
