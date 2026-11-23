@@ -91,17 +91,26 @@ public class PartitionChooserTest {
     }
 
     @Test
-    public void stickyRecordsRepeatEachDrawAndKeepShares() {
-        PartitionChooser chooser = new PartitionChooser(weights("3", 0.91, "*", 0.09), 8, 4);
+    public void stickyRunsMixFloorAndCeilToTheMeanAndKeepShares() {
+        PartitionChooser chooser = new PartitionChooser(weights("3", 0.91, "*", 0.09), 8, 4.3);
         Random random = new Random(42);
-        int[] counts = new int[8];
-        for (int run = 0; run < DRAWS / 4; run++) {
-            int first = chooser.next(random);
-            for (int i = 1; i < 4; i++) {
-                assertEquals(first, chooser.next(random));
-            }
-            counts[first] += 4;
+        long[] counts = new long[8];
+        long total = 0;
+        for (int run = 0; run < DRAWS; run++) {
+            int length = chooser.runLength();
+            assertTrue("run length " + length, length == 4 || length == 5);
+            counts[chooser.next(random)] += length;
+            total += length;
         }
-        assertEquals(0.91, counts[3] / (double) DRAWS, 0.01);
+        assertEquals(4.3, total / (double) DRAWS, 0.001);
+        assertEquals(0.91, counts[3] / (double) total, 0.01);
+    }
+
+    @Test
+    public void stickyRecordsOneSendsOneRecordPerDraw() {
+        PartitionChooser chooser = new PartitionChooser(weights("*", 1.0), 8, 1);
+        for (int run = 0; run < 100; run++) {
+            assertEquals(1, chooser.runLength());
+        }
     }
 }

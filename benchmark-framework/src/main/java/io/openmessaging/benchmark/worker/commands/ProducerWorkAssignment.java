@@ -28,5 +28,5 @@ public class ProducerWorkAssignment {
 
     public Map<String, Double> partitionWeights;
 
-    public int partitionStickyRecords = 1;
+    public double partitionStickyRecords = 1;
 }

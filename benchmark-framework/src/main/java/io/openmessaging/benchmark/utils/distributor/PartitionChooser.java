@@ -27,17 +27,15 @@ public class PartitionChooser {
 
     private final double[] cumulativeShares;
 
-    private final int stickyRecords;
+    private final double stickyRecords;
 
-    private int current;
-
-    private int remaining;
+    private double carry;
 
     public PartitionChooser(Map<String, Double> weights, int partitionCount) {
         this(weights, partitionCount, 1);
     }
 
-    public PartitionChooser(Map<String, Double> weights, int partitionCount, int stickyRecords) {
+    public PartitionChooser(Map<String, Double> weights, int partitionCount, double stickyRecords) {
         checkWeights(weights);
         this.stickyRecords = stickyRecords;
 
@@ -82,16 +80,6 @@ public class PartitionChooser {
      * @return a partition drawn according to the configured shares
      */
     public int next(Random random) {
-        if (remaining > 0) {
-            remaining--;
-            return current;
-        }
-        current = draw(random);
-        remaining = stickyRecords - 1;
-        return current;
-    }
-
-    private int draw(Random random) {
         double draw = random.nextDouble() * cumulativeShares[cumulativeShares.length - 1];
         int low = 0;
         int high = cumulativeShares.length - 1;
@@ -104,6 +92,17 @@ public class PartitionChooser {
             }
         }
         return low;
+    }
+
+    /**
+     * @return how many records the partition from the last next() gets in a row: floor or ceil of the sticky
+     *         count, mixed so the mean is the sticky count. Call once after each next().
+     */
+    public int runLength() {
+        carry += stickyRecords;
+        int length = (int) carry;
+        carry -= length;
+        return length;
     }
 
     /**
